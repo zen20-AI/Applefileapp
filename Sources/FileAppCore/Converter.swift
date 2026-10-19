@@ -23,7 +23,7 @@ public enum Converter {
             return FileKind(url: url) == .pdf // docx from PDF text
         case .document:
             return format == .pdf || format == .docx
-        case .other:
+        case .video, .other:
             return false
         }
     }

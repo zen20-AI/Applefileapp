@@ -15,22 +15,36 @@ struct ControlPanel: View {
             header
             ringPill
             dropZone
-            actions
+            shortcuts
             if !history.recentOutputs.isEmpty { recents }
-            footer
         }
         .padding(12)
         .frame(width: 320)
     }
 
+    /// Title bar: name and status on the left, Update and Quit always one click away on the right.
     private var header: some View {
         HStack(spacing: 8) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(width: 22, height: 22)
-            Text("Petal").font(.system(size: 13, weight: .bold, design: .rounded))
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Petal").font(.system(size: 13, weight: .bold, design: .rounded))
+                Text(version).font(.system(size: 9, weight: .medium)).foregroundStyle(Theme.label)
+            }
+            StatusPill(text: settings.ringEnabled ? String(localized: "Active") : String(localized: "Paused"),
+                       active: settings.ringEnabled)
             Spacer()
-            StatusPill(text: settings.ringEnabled ? "Active" : "Paused", active: settings.ringEnabled)
+            if updater.isConfigured {
+                HeaderButton(symbol: "arrow.down.circle", title: String(localized: "Check for Updates")) {
+                    updater.checkForUpdates()
+                }
+                .disabled(!updater.canCheckForUpdates)
+            }
+            HeaderButton(symbol: "power", title: String(localized: "Quit Petal"), destructive: true) {
+                NSApp.terminate(nil)
+            }
+            .keyboardShortcut("q")
         }
         .padding(.horizontal, 4)
         .padding(.top, 2)
@@ -39,8 +53,8 @@ struct ControlPanel: View {
     /// Big Control Center–style pill: tap anywhere to pause or resume the ring.
     private var ringPill: some View {
         PillButton(
-            title: "Drag Ring",
-            subtitle: settings.ringEnabled ? "On · drag any file" : "Off",
+            title: String(localized: "Drag Ring"),
+            subtitle: settings.ringEnabled ? String(localized: "On · drag any file") : String(localized: "Off"),
             symbol: "circle.hexagongrid.fill",
             isOn: settings.ringEnabled,
             large: true
@@ -59,7 +73,7 @@ struct ControlPanel: View {
             Text(isTargeted ? "Release to open the ring" : "Drop files here")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Theme.ink.opacity(0.8))
-            Text("or click to choose")
+            Text("or click to choose · \(HotKey.displayString) in Finder")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.label)
         }
@@ -81,17 +95,15 @@ struct ControlPanel: View {
         } isTargeted: { targeted in withAnimation(Theme.snappy) { isTargeted = targeted } }
     }
 
-    private var actions: some View {
-        Grid(horizontalSpacing: 8, verticalSpacing: 8) {
-            GridRow {
-                PillButton(title: "Open Files", symbol: "plus") { coordinator.chooseFiles() }
-                PillButton(title: "Workspace", symbol: "tray.full.fill") { coordinator.manager.show(section: .workspace) }
-            }
-            GridRow {
-                PillButton(title: "History", symbol: "clock.fill") { coordinator.manager.show(section: .history) }
-                PillButton(title: "Settings", symbol: "gearshape.fill") { coordinator.manager.show(section: .settings) }
-            }
+    /// Round shortcuts, like the small buttons in Control Center.
+    private var shortcuts: some View {
+        HStack(spacing: 0) {
+            RoundShortcut(title: String(localized: "Workspace"), symbol: "tray.full.fill") { coordinator.manager.show(section: .workspace) }
+            RoundShortcut(title: String(localized: "Automation"), symbol: "bolt.fill") { coordinator.manager.show(section: .automation) }
+            RoundShortcut(title: String(localized: "History"), symbol: "clock.fill") { coordinator.manager.show(section: .history) }
+            RoundShortcut(title: String(localized: "Settings"), symbol: "gearshape.fill") { coordinator.manager.show(section: .settings) }
         }
+        .padding(.vertical, 4)
     }
 
     private var recents: some View {
@@ -109,36 +121,65 @@ struct ControlPanel: View {
         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Theme.surfaceStrong))
     }
 
-    private var footer: some View {
-        HStack {
-            Text(version).font(.system(size: 10)).foregroundStyle(Theme.label).padding(.leading, 6)
-            Spacer()
-            if updater.isConfigured {
-                Button("Updates") { updater.checkForUpdates() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.ink.opacity(0.7))
-                    .disabled(!updater.canCheckForUpdates)
-                Text("·").foregroundStyle(Theme.label)
-            }
-            Button("About") { coordinator.manager.show(section: .about) }
-                .buttonStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Theme.ink.opacity(0.7))
-            Text("·").foregroundStyle(Theme.label)
-            Button("Quit Petal") { NSApp.terminate(nil) }
-                .buttonStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Theme.ink.opacity(0.7))
-                .keyboardShortcut("q")
-                .padding(.trailing, 6)
-        }
-        .padding(.top, 2)
-    }
-
     private var version: String {
         let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
-        return "Version \(short)"
+        return String(localized: "Version \(short)")
+    }
+}
+
+/// Small circular icon button for the panel's title bar.
+private struct HeaderButton: View {
+    let symbol: String
+    let title: String
+    var destructive = false
+    let action: () -> Void
+    @State private var hovering = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(hovering ? Color.white : Theme.ink.opacity(0.75))
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(hovering ? (destructive ? Color.red.opacity(0.85) : Theme.accent) : Theme.surfaceStrong))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.4)
+        .help(title)
+        .accessibilityLabel(title)
+        .onHover { hovering = $0 && isEnabled }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+    }
+}
+
+private struct RoundShortcut: View {
+    let title: String
+    let symbol: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                Image(systemName: symbol)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(hovering ? Color.white : Theme.ink.opacity(0.8))
+                    .frame(width: 42, height: 42)
+                    .background(Circle().fill(hovering ? AnyShapeStyle(Theme.accentGradient) : AnyShapeStyle(Theme.surfaceStrong)))
+                    .scaleEffect(hovering ? 1.06 : 1)
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Theme.ink.opacity(0.75))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(Theme.snappy, value: hovering)
     }
 }
 

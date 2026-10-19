@@ -1,5 +1,7 @@
 import AppKit
 import CoreGraphics
+import CoreText
+import ImageIO
 import Foundation
 import PDFKit
 import Testing
@@ -222,6 +224,84 @@ import UniformTypeIdentifiers
             defer { OutputNaming.destinationDirectory = nil }
             let url = OutputNaming.url(for: URL(fileURLWithPath: "/elsewhere/a.png"), fileExtension: "jpg")
             #expect(url.deletingLastPathComponent().standardizedFileURL == dir.standardizedFileURL)
+        }
+    }
+}
+
+@Suite struct MoreToolsTests {
+    @Test func renamePreviewNumbersAndAvoidsClashes() throws {
+        let urls = ["/x/b.jpg", "/x/a.png", "/x/c.jpg"].map { URL(fileURLWithPath: $0) }
+        let taken = URL(fileURLWithPath: "/x/Trip 2.png")
+        let names = BatchRenamer.preview(urls, pattern: RenamePattern(template: "Trip"), exists: { $0 == taken })
+        #expect(names.map(\.lastPathComponent) == ["Trip 1.jpg", "Trip 2 2.png", "Trip 3.jpg"])
+        let padded = BatchRenamer.preview(urls, pattern: RenamePattern(template: "{name}-{n}", start: 9, digits: 3), exists: { _ in false })
+        #expect(padded.map(\.lastPathComponent) == ["b-009.jpg", "a-010.png", "c-011.jpg"])
+    }
+
+    @Test func renameSwapsNames() throws {
+        try withTemporaryDirectory { dir in
+            let a = dir.appendingPathComponent("1.txt"), b = dir.appendingPathComponent("2.txt")
+            try "a".write(to: a, atomically: true, encoding: .utf8)
+            try "b".write(to: b, atomically: true, encoding: .utf8)
+            // b → "1", a → "2": a straight swap.
+            let result = try BatchRenamer.rename([b, a], pattern: RenamePattern(template: "{n}"))
+            #expect(result.map(\.lastPathComponent) == ["1.txt", "2.txt"])
+            #expect(try String(contentsOf: dir.appendingPathComponent("1.txt"), encoding: .utf8) == "b")
+        }
+    }
+
+    @Test func lockAndUnlock() throws {
+        try withTemporaryDirectory { dir in
+            let source = try makePDF(pages: 2, in: dir)
+            let locked = try PDFTools.lock(source, password: "pass")
+            #expect(PDFTools.isLocked(locked))
+            #expect(throws: PDFTools.PasswordError.self) { try PDFTools.unlock(locked, password: "nope") }
+            let unlocked = try PDFTools.unlock(locked, password: "pass")
+            #expect(!PDFTools.isLocked(unlocked))
+            #expect(PDFDocument(url: unlocked)?.pageCount == 2)
+        }
+    }
+
+    @Test func stampsKeepPagesAndRotation() throws {
+        try withTemporaryDirectory { dir in
+            var pages = try PDFPages.pages(of: [try makePDF(pages: 3, in: dir)])
+            pages[0].rotation = 90
+            let rotated = try PDFPages.write(pages, name: dir.appendingPathComponent("R.pdf"), suffix: "X")
+            let numbered = try PDFTools.numberPages(rotated, ofTotal: true)
+            let watermarked = try PDFTools.watermark(numbered, text: "DRAFT")
+            let document = try #require(PDFDocument(url: watermarked))
+            #expect(document.pageCount == 3)
+            // The 10 × 40 page turned 90° is drawn upright as 40 × 10.
+            #expect(document.page(at: 0)?.bounds(for: .mediaBox).size == CGSize(width: 40, height: 10))
+            #expect(document.string?.contains("DRAFT") == true)
+        }
+    }
+
+    @Test func ocrReadsRenderedText() throws {
+        let ctx = try #require(ImageFile.makeContext(width: 900, height: 200))
+        ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: 900, height: 200))
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: "Hello Petal 2026", attributes: [
+            .font: NSFont.systemFont(ofSize: 72), .foregroundColor: NSColor.black]))
+        ctx.textPosition = CGPoint(x: 40, y: 70)
+        CTLineDraw(line, ctx)
+        let text = try TextRecognizer.recognize(try #require(ctx.makeImage()))
+        #expect(text.contains("Petal"))
+    }
+
+    @Test func gifAndSlideshow() throws {
+        try withTemporaryDirectory { dir in
+            let urls = try (1...3).map { n -> URL in
+                let url = dir.appendingPathComponent("F\(n).png")
+                try ImageFile.write(try solidImage(width: 64 * n, height: 48), to: url, type: .png)
+                return url
+            }
+            let gif = try MediaMaker.makeGIF(urls, maxSide: 100)
+            #expect(gif.lastPathComponent == "F1 Animation.gif")
+            #expect(CGImageSourceCreateWithURL(gif as CFURL, nil).map(CGImageSourceGetCount) == 3)
+            let video = try MediaMaker.makeVideo(urls, secondsPerImage: 0.5)
+            #expect(video.fileSize > 0)
+            #expect(FileKind(url: video) == .video)
         }
     }
 }

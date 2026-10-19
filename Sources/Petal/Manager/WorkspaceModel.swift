@@ -13,6 +13,7 @@ struct WorkspaceFile: Identifiable {
         switch kind {
         case .image: return "Image"
         case .pdf: return "PDF"
+        case .video: return "Video"
         case .document: return "Document"
         case .other: return "Other"
         }
@@ -62,6 +63,17 @@ final class WorkspaceModel: ObservableObject {
         files.removeAll { urls.contains($0.url) }
         selection.subtract(urls)
         urls.forEach { thumbnails[$0] = nil }
+    }
+
+    /// After a rename: same rows, new file names.
+    func replace(_ old: [URL], with new: [URL]) {
+        let map = Dictionary(zip(old, new), uniquingKeysWith: { first, _ in first })
+        files = files.map { file in
+            guard let url = map[file.url] else { return file }
+            thumbnails[url] = thumbnails.removeValue(forKey: file.url)
+            return WorkspaceFile(url: url, kind: file.kind, size: file.size)
+        }
+        selection = Set(selection.map { map[$0] ?? $0 })
     }
 
     func move(from offsets: IndexSet, to destination: Int) {

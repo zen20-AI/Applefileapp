@@ -12,7 +12,14 @@ final class PagesModel: ObservableObject {
         var ref: PageRef
     }
 
-    @Published var pages: [Page] = []
+    @Published var pages: [Page] = [] {
+        didSet { if !restoring, oldValue != pages { undoStack.append(oldValue); redoStack.removeAll() } }
+    }
+    private var undoStack: [[Page]] = []
+    private var redoStack: [[Page]] = []
+    private var restoring = false
+    var canUndo: Bool { !undoStack.isEmpty }
+    var canRedo: Bool { !redoStack.isEmpty }
     @Published var selection: Set<UUID> = []
     @Published private(set) var thumbnails: [String: NSImage] = [:]
     /// The page being dragged to a new position.
@@ -85,6 +92,19 @@ final class PagesModel: ObservableObject {
 
     func reverse() { pages.reverse() }
 
+    func undo() { step(from: &undoStack, to: &redoStack) }
+    func redo() { step(from: &redoStack, to: &undoStack) }
+
+    private func step(from source: inout [[Page]], to target: inout [[Page]]) {
+        guard let previous = source.popLast() else { return }
+        target.append(pages)
+        restoring = true
+        pages = previous
+        restoring = false
+        let ids = Set(pages.map(\.id))
+        selection = selection.intersection(ids)
+    }
+
     /// A drag dropped outside the grid never reaches a drop delegate, so clear it once the mouse is up.
     private func watchDragEnd() {
         Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] timer in
@@ -143,8 +163,8 @@ struct PagesEditor: View {
     private var title: String {
         let count = model.pages.count
         let files = model.sources.count
-        let pages = count == 1 ? "1 page" : "\(count) pages"
-        return files > 1 ? "\(pages) from \(files) files" : "\(model.name.lastPathComponent) · \(pages)"
+        let pages = count == 1 ? String(localized: "1 page") : String(localized: "\(count) pages")
+        return files > 1 ? String(localized: "\(pages) from \(files) files") : "\(model.name.lastPathComponent) · \(pages)"
     }
 
     var body: some View {
@@ -230,6 +250,8 @@ struct PagesEditor: View {
 
     private var footer: some View {
         HStack(spacing: 8) {
+            IconButton(symbol: "arrow.uturn.backward", help: "Undo (⌘Z)") { withAnimation(Theme.spring) { model.undo() } }
+                .disabled(!model.canUndo)
             IconButton(symbol: "plus", help: "Add PDFs or images", action: addFiles)
             IconButton(symbol: "rotate.left", help: "Rotate left (⌘[)") { withAnimation(Theme.spring) { model.rotate(by: -90) } }
                 .disabled(model.pages.isEmpty)
@@ -277,6 +299,8 @@ struct PagesEditor: View {
             Button("") { withAnimation(Theme.spring) { model.deleteSelection() } }.keyboardShortcut(.delete, modifiers: [])
             Button("") { withAnimation(Theme.spring) { model.rotate(by: -90) } }.keyboardShortcut("[", modifiers: .command)
             Button("") { withAnimation(Theme.spring) { model.rotate(by: 90) } }.keyboardShortcut("]", modifiers: .command)
+            Button("") { withAnimation(Theme.spring) { model.undo() } }.keyboardShortcut("z", modifiers: .command)
+            Button("") { withAnimation(Theme.spring) { model.redo() } }.keyboardShortcut("z", modifiers: [.command, .shift])
         }
         .opacity(0)
         .allowsHitTesting(false)

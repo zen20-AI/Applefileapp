@@ -19,6 +19,10 @@ final class AppSettings: ObservableObject {
     @Published var pdfDPI: Double { didSet { save() } }
     @Published var revealAfterSaving: Bool { didSet { save() } }
     @Published var showDockIcon: Bool { didSet { save() } }
+    @Published var hotKeyEnabled: Bool { didSet { save() } }
+    @Published var videoQualityRaw: String { didSet { save() } }
+
+    var videoQuality: MediaMaker.VideoQuality { MediaMaker.VideoQuality(rawValue: videoQualityRaw) ?? .p720 }
 
     /// Fired after any change so observers (drag monitor, Dock icon) can follow along.
     var onChange: (() -> Void)?
@@ -34,6 +38,8 @@ final class AppSettings: ObservableObject {
             "pdfDPI": 300.0,
             "revealAfterSaving": false,
             "showDockIcon": false,
+            "hotKeyEnabled": true,
+            "videoQuality": MediaMaker.VideoQuality.p720.rawValue,
         ])
         ringEnabled = defaults.bool(forKey: "ringEnabled")
         activationDistance = defaults.double(forKey: "activationDistance")
@@ -44,6 +50,8 @@ final class AppSettings: ObservableObject {
         pdfDPI = defaults.double(forKey: "pdfDPI")
         revealAfterSaving = defaults.bool(forKey: "revealAfterSaving")
         showDockIcon = defaults.bool(forKey: "showDockIcon")
+        hotKeyEnabled = defaults.bool(forKey: "hotKeyEnabled")
+        videoQualityRaw = defaults.string(forKey: "videoQuality") ?? MediaMaker.VideoQuality.p720.rawValue
         applyToCore()
     }
 
@@ -66,7 +74,7 @@ final class AppSettings: ObservableObject {
 
     func resetToDefaults() {
         for key in ["ringEnabled", "activationDistance", "useCustomFolder", "customFolderPath", "lossyQuality",
-                    "compressQuality", "pdfDPI", "revealAfterSaving", "showDockIcon"] {
+                    "compressQuality", "pdfDPI", "revealAfterSaving", "showDockIcon", "hotKeyEnabled", "videoQuality"] {
             defaults.removeObject(forKey: key)
         }
         ringEnabled = defaults.bool(forKey: "ringEnabled")
@@ -78,6 +86,8 @@ final class AppSettings: ObservableObject {
         pdfDPI = defaults.double(forKey: "pdfDPI")
         revealAfterSaving = defaults.bool(forKey: "revealAfterSaving")
         showDockIcon = defaults.bool(forKey: "showDockIcon")
+        hotKeyEnabled = defaults.bool(forKey: "hotKeyEnabled")
+        videoQualityRaw = defaults.string(forKey: "videoQuality") ?? MediaMaker.VideoQuality.p720.rawValue
     }
 
     // MARK: - Launch at login
@@ -106,6 +116,8 @@ final class AppSettings: ObservableObject {
         defaults.set(pdfDPI, forKey: "pdfDPI")
         defaults.set(revealAfterSaving, forKey: "revealAfterSaving")
         defaults.set(showDockIcon, forKey: "showDockIcon")
+        defaults.set(hotKeyEnabled, forKey: "hotKeyEnabled")
+        defaults.set(videoQualityRaw, forKey: "videoQuality")
         applyToCore()
         onChange?()
     }

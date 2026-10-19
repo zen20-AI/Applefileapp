@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 public enum FileKind: Equatable {
     case image
     case pdf
+    case video
     case document
     case other
 
@@ -24,6 +25,8 @@ public enum FileKind: Equatable {
             self = .pdf
         } else if type.conforms(to: .image) {
             self = .image
+        } else if type.conforms(to: .movie) {
+            self = .video
         } else if Self.documentTypes.contains(where: { type.conforms(to: $0) }) {
             self = .document
         } else {

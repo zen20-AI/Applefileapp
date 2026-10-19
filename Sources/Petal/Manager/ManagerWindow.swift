@@ -2,22 +2,24 @@ import AppKit
 import SwiftUI
 
 enum ManagerSection: String, CaseIterable, Identifiable {
-    case workspace, history, settings, about
+    case workspace, automation, history, settings, about
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .workspace: return "Workspace"
-        case .history: return "History"
-        case .settings: return "Settings"
-        case .about: return "About"
+        case .workspace: return String(localized: "Workspace")
+        case .automation: return String(localized: "Automation")
+        case .history: return String(localized: "History")
+        case .settings: return String(localized: "Settings")
+        case .about: return String(localized: "About")
         }
     }
 
     var symbol: String {
         switch self {
         case .workspace: return "tray.full"
+        case .automation: return "bolt"
         case .history: return "clock.arrow.circlepath"
         case .settings: return "gearshape"
         case .about: return "info.circle"

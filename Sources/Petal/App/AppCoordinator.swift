@@ -13,6 +13,8 @@ final class AppCoordinator {
     private let settings = AppSettings.shared
     private let history = HistoryStore.shared
     private(set) lazy var manager = ManagerWindowController(coordinator: self)
+    private lazy var services = ServiceProvider(coordinator: self)
+    private var hotKey: HotKey?
 
     func start() {
         dragMonitor.onDragBegan = { [weak self] urls, location in
@@ -33,11 +35,70 @@ final class AppCoordinator {
 
         settings.onChange = { [weak self] in self?.applySettings() }
         applySettings()
+
+        FolderWatcher.shared.onResult = { [weak self] rule, source, result in
+            guard let self else { return }
+            switch result {
+            case .success(let outputs):
+                self.history.record(action: rule.action.title, sources: [source], outputs: outputs)
+                self.toast.message(rule.action.title, detail: source.lastPathComponent, outputs: outputs)
+            case .failure(let error):
+                self.toast.message(rule.action.title, detail: error.localizedDescription, isError: true)
+            }
+        }
+        FolderWatcher.shared.start()
+
+        // Finder: right-click → Quick Actions / Services → Petal.
+        NSApp.servicesProvider = services
+        NSUpdateDynamicServices()
+    }
+
+    /// ⌥⌘P: the ring for whatever is selected in Finder (or a file picker when nothing is).
+    func ringForFinderSelection() {
+        let urls = FinderSelection.urls()
+        if urls.isEmpty { chooseFiles() } else { showRing(for: urls, near: NSEvent.mouseLocation) }
+    }
+
+    /// Runs a tool by name: used by Finder services and petal:// links (Shortcuts → Open URL).
+    func run(named name: String, on urls: [URL]) {
+        switch name.lowercased() {
+        case "ring": urls.isEmpty ? ringForFinderSelection() : showRing(for: urls, near: NSEvent.mouseLocation)
+        case "workspace": open(urls)
+        case "pages": organizePages(urls)
+        case "split": splitPages(urls)
+        case "merge": merge(urls)
+        case "rename": rename(urls)
+        case "text", "copytext", "ocr": copyText(urls)
+        default:
+            if let tool = Tool(rawValue: name) ?? Tool.allCases.first(where: { $0.rawValue.lowercased() == name.lowercased() }) {
+                perform(.tool(tool), on: urls)
+            } else if name.lowercased().hasPrefix("convert-"), let format = OutputFormat(rawValue: String(name.dropFirst(8)).lowercased()) {
+                perform(.convert(format), on: urls)
+            } else {
+                toast.message(String(localized: "Petal"), detail: String(localized: "Unknown action “\(name)”"), isError: true)
+            }
+        }
+    }
+
+    /// petal://run?action=compress&path=/Users/me/a.jpg&path=…   ·   petal://ring
+    func handle(_ link: URL) {
+        let components = URLComponents(url: link, resolvingAgainstBaseURL: false)
+        let items = components?.queryItems ?? []
+        let paths = items.filter { $0.name == "path" || $0.name == "file" }.compactMap(\.value)
+        let urls = paths.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+        let action = items.first(where: { $0.name == "action" })?.value ?? link.host ?? "ring"
+        run(named: action == "run" ? "ring" : action, on: urls)
     }
 
     private func applySettings() {
         dragMonitor.activationDistance = settings.activationDistance
         if settings.ringEnabled { dragMonitor.start() } else { dragMonitor.stop() }
+        if settings.hotKeyEnabled, hotKey == nil {
+            hotKey = HotKey { [weak self] in self?.ringForFinderSelection() }
+        } else if !settings.hotKeyEnabled {
+            hotKey?.unregister()
+            hotKey = nil
+        }
         manager.updateActivationPolicy()
     }
 
@@ -65,15 +126,32 @@ final class AppCoordinator {
         switch action {
         case .convert(let format):
             let eligible = urls.filter { Converter.isAvailable(format, for: $0) }
-            runBatch(title: "Converting to \(format.label)", urls: eligible) { url in
+            runBatch(title: String(localized: "Converting to \(format.label)"), urls: eligible) { url in
                 try Converter.convert(url, to: format)
             }
 
         case .tool(.compress):
-            let eligible = urls.filter(Compressor.canCompress)
-            runBatch(title: "Compressing", urls: eligible) { url in
-                [try Compressor.compress(url).output]
+            let eligible = urls.filter { Tool.compress.isAvailable(for: $0) }
+            let quality = settings.videoQuality
+            runBatch(title: String(localized: "Compressing"), urls: eligible) { url in
+                FileKind(url: url) == .video
+                    ? [try MediaMaker.compressVideo(url, quality: quality)]
+                    : [try Compressor.compress(url).output]
             }
+
+        case .tool(.cutOut):
+            let images = urls.filter(BackgroundRemover.canRemove)
+            runBatch(title: String(localized: "Removing Background"), urls: images) { [try BackgroundRemover.removeBackground($0)] }
+
+        case .tool(.copyText):
+            copyText(urls)
+
+        case .tool(.animate):
+            animate(urls)
+
+        case .tool(.secure):
+            guard let pdf = urls.first(where: PDFTools.isPDF) else { return }
+            openPDFTools(pdf)
 
         case .tool(.merge):
             merge(urls)
@@ -90,7 +168,7 @@ final class AppCoordinator {
             editors.open(size: CGSize(width: 460, height: 310)) { close in
                 ResizeEditor(urls: images, onSave: { [weak self] mode in
                     close()
-                    self?.runBatch(title: "Resizing", urls: images) { [try Resizer.resize($0, mode: mode)] }
+                    self?.runBatch(title: String(localized: "Resizing"), urls: images) { [try Resizer.resize($0, mode: mode)] }
                 }, onClose: close)
             }
 
@@ -103,7 +181,7 @@ final class AppCoordinator {
     /// Removes EXIF/GPS/TIFF data from every image in one pass.
     func stripMetadata(_ urls: [URL]) {
         let images = urls.filter { FileKind(url: $0) == .image }
-        runBatch(title: "Removing Metadata", urls: images) { url in
+        runBatch(title: String(localized: "Removing Metadata"), urls: images) { url in
             let output = Self.cleanOutputURL(for: url)
             try ImageFile.writeWithoutMetadata(from: url, to: output)
             return [output]
@@ -113,11 +191,117 @@ final class AppCoordinator {
     func merge(_ urls: [URL]) {
         let inputs = urls.filter(PDFMerger.canMerge)
         guard inputs.count > 1 else {
-            toast.message("Merge PDF", detail: "Choose at least two images or PDFs", isError: true)
+            toast.message(String(localized: "Merge PDF"), detail: String(localized: "Choose at least two images or PDFs"), isError: true)
             return
         }
-        runJob(title: "Merging \(inputs.count) files", action: "Merge PDF", sources: inputs) {
+        runJob(title: String(localized: "Merging \(inputs.count) files"), action: String(localized: "Merge PDF"), sources: inputs) {
             [try PDFMerger.merge(inputs)]
+        }
+    }
+
+    // MARK: - Text, animation, PDF tools, rename
+
+    /// Reads text from images / PDFs (on device), copies it and shows it.
+    func copyText(_ urls: [URL]) {
+        let inputs = urls.filter(TextRecognizer.canRecognize)
+        guard let first = inputs.first else {
+            toast.message(String(localized: "Copy Text"), detail: String(localized: "Choose images or PDFs"), isError: true)
+            return
+        }
+        toast.begin(String(localized: "Reading text"), total: 1)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try inputs.map(TextRecognizer.text(of:)).joined(separator: "\n\n") }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    switch result {
+                    case .success(let text) where !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(text, forType: .string)
+                        self.toast.finish(detail: String(localized: "Text copied to the clipboard"))
+                        self.editors.open(size: CGSize(width: 560, height: 520), resizable: true) { close in
+                            TextResultView(source: first, text: text, onSave: { [weak self] edited in
+                                self?.saveText(edited, for: first, sources: inputs)
+                            }, onClose: close)
+                        }
+                    case .success:
+                        self.toast.finish(detail: String(localized: "No text found"), isError: true)
+                    case .failure(let error):
+                        self.toast.finish(detail: error.localizedDescription, isError: true)
+                    }
+                }
+            }
+        }
+    }
+
+    private func saveText(_ text: String, for source: URL, sources: [URL]) {
+        let output = OutputNaming.url(for: source, suffix: "Text", fileExtension: "txt")
+        do {
+            try text.write(to: output, atomically: true, encoding: .utf8)
+            history.record(action: String(localized: "Copy Text"), sources: sources, outputs: [output])
+            toast.message(String(localized: "Saved"), detail: output.lastPathComponent, outputs: [output])
+            revealIfNeeded([output])
+        } catch {
+            toast.message(String(localized: "Couldn't save"), detail: error.localizedDescription, isError: true)
+        }
+    }
+
+    func animate(_ urls: [URL]) {
+        let images = urls.filter { FileKind(url: $0) == .image }
+        guard images.count > 1 else {
+            toast.message(String(localized: "GIF / Video"), detail: String(localized: "Choose at least two images"), isError: true)
+            return
+        }
+        editors.open(size: CGSize(width: 460, height: 330)) { close in
+            AnimateEditor(urls: images, onCreate: { [weak self] kind, seconds, maxSide in
+                close()
+                let title = kind == .gif ? String(localized: "Making GIF") : String(localized: "Making Video")
+                self?.runJob(title: title, action: kind == .gif ? "GIF" : String(localized: "Video"), sources: images) {
+                    kind == .gif
+                        ? [try MediaMaker.makeGIF(images, frameDelay: seconds, maxSide: maxSide)]
+                        : [try MediaMaker.makeVideo(images, secondsPerImage: seconds, maxSide: maxSide)]
+                }
+            }, onClose: close)
+        }
+    }
+
+    func openPDFTools(_ url: URL) {
+        editors.open(size: CGSize(width: 640, height: 470)) { close in
+            PDFToolsEditor(url: url, onApply: { [weak self] request in
+                let title: String
+                let work: () throws -> URL
+                switch request {
+                case .lock(let password):
+                    title = String(localized: "Lock PDF"); work = { try PDFTools.lock(url, password: password) }
+                case .unlock(let password):
+                    title = String(localized: "Unlock PDF"); work = { try PDFTools.unlock(url, password: password) }
+                case .watermark(let text, let opacity):
+                    title = String(localized: "Watermark"); work = { try PDFTools.watermark(url, text: text, opacity: opacity) }
+                case .number(let position, let ofTotal):
+                    title = String(localized: "Page Numbers"); work = { try PDFTools.numberPages(url, position: position, ofTotal: ofTotal) }
+                case .sign(let image, let page, let rect):
+                    title = String(localized: "Sign PDF"); work = { try PDFTools.stamp(url, image: image, pageIndex: page, rect: rect) }
+                }
+                close()
+                self?.runJob(title: title, action: title, sources: [url]) { [try work()] }
+            }, onClose: close)
+        }
+    }
+
+    /// Renames files in place from a pattern and keeps the Workspace pointing at them.
+    func rename(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        editors.open(size: CGSize(width: 520, height: 380)) { close in
+            RenameEditor(urls: urls, onRename: { [weak self] pattern in
+                guard let self else { return }
+                close()
+                do {
+                    let renamed = try BatchRenamer.rename(urls, pattern: pattern)
+                    self.manager.workspace.replace(urls, with: renamed)
+                    self.toast.message(String(localized: "Renamed"), detail: String(localized: "\(renamed.count) files"), outputs: renamed)
+                } catch {
+                    self.toast.message(String(localized: "Rename"), detail: error.localizedDescription, isError: true)
+                }
+            }, onClose: close)
         }
     }
 
@@ -127,14 +311,14 @@ final class AppCoordinator {
     func organizePages(_ urls: [URL]) {
         let inputs = urls.filter(PDFMerger.canMerge)
         guard !inputs.isEmpty else {
-            toast.message("Pages", detail: "Choose PDFs or images", isError: true)
+            toast.message(String(localized: "Pages"), detail: String(localized: "Choose PDFs or images"), isError: true)
             return
         }
         let model: PagesModel
         do {
             model = try PagesModel(urls: inputs)
         } catch {
-            toast.message("Pages", detail: error.localizedDescription, isError: true)
+            toast.message(String(localized: "Pages"), detail: error.localizedDescription, isError: true)
             return
         }
         editors.open(size: CGSize(width: 820, height: 640), resizable: true) { close in
@@ -142,13 +326,13 @@ final class AppCoordinator {
                 model: model,
                 onSave: { [weak self] pages, name in
                     close()
-                    self?.writePages(pages, name: name, suffix: "Edited", action: "Organize Pages")
+                    self?.writePages(pages, name: name, suffix: "Edited", action: String(localized: "Organize Pages"))
                 },
                 onExtract: { [weak self] pages, name in
-                    self?.writePages(pages, name: name, suffix: "Extract", action: "Extract Pages")
+                    self?.writePages(pages, name: name, suffix: "Extract", action: String(localized: "Extract Pages"))
                 },
                 onSplit: { [weak self] pages, mode, name in
-                    self?.runJob(title: "Splitting \(pages.count) pages", action: "Split PDF", sources: Array(Set(pages.map(\.source)))) {
+                    self?.runJob(title: String(localized: "Splitting \(pages.count) pages"), action: String(localized: "Split PDF"), sources: Array(Set(pages.map(\.source)))) {
                         try PDFPages.split(pages, mode: mode, name: name)
                     }
                 },
@@ -159,12 +343,12 @@ final class AppCoordinator {
     /// Splits every PDF into single pages (or another split mode).
     func splitPages(_ urls: [URL], mode: SplitMode = .everyPage) {
         let pdfs = urls.filter { FileKind(url: $0) == .pdf }
-        runBatch(title: "Splitting PDF", urls: pdfs) { try PDFPages.split($0, mode: mode) }
+        runBatch(title: String(localized: "Splitting PDF"), urls: pdfs) { try PDFPages.split($0, mode: mode) }
     }
 
     private func writePages(_ pages: [PageRef], name: URL, suffix: String, action: String) {
         let sources = Array(Set(pages.map(\.source)))
-        runJob(title: "Saving \(pages.count) pages", action: action, sources: sources) {
+        runJob(title: String(localized: "Saving \(pages.count) pages"), action: action, sources: sources) {
             [try PDFPages.write(pages, name: name, suffix: suffix)]
         }
     }
@@ -193,7 +377,7 @@ final class AppCoordinator {
 
     private func runBatch(title: String, urls: [URL], work: @escaping (URL) throws -> [URL]) {
         guard !urls.isEmpty else {
-            toast.message(title, detail: "Nothing here can be processed this way", isError: true)
+            toast.message(title, detail: String(localized: "Nothing here can be processed this way"), isError: true)
             return
         }
         toast.begin(title, total: urls.count)
@@ -267,7 +451,7 @@ final class AppCoordinator {
             do {
                 let output = try EditorOutput.save(result, source: url, suffix: suffix, forcePNG: forcePNG)
                 self?.history.record(action: tool.title, sources: [url], outputs: [output])
-                self?.toast.message("Saved", detail: output.lastPathComponent, outputs: [output])
+                self?.toast.message(String(localized: "Saved"), detail: output.lastPathComponent, outputs: [output])
                 self?.revealIfNeeded([output])
                 close()
             } catch {
@@ -296,7 +480,7 @@ final class AppCoordinator {
             editors.open(size: CGSize(width: 620, height: 680)) { close in
                 RedactEditor(image: image, onSave: { save("Redacted", false, $0, close) }, onClose: close)
             }
-        case .compress, .metadata, .resize, .merge, .pages, .split:
+        case .compress, .metadata, .resize, .merge, .pages, .split, .cutOut, .copyText, .animate, .secure:
             break
         }
     }
@@ -310,11 +494,11 @@ final class AppCoordinator {
         let output = Self.cleanOutputURL(for: url)
         do {
             try write(output)
-            history.record(action: "Remove Metadata", sources: [url], outputs: [output])
-            toast.message("Saved", detail: output.lastPathComponent, outputs: [output])
+            history.record(action: String(localized: "Remove Metadata"), sources: [url], outputs: [output])
+            toast.message(String(localized: "Saved"), detail: output.lastPathComponent, outputs: [output])
             revealIfNeeded([output])
         } catch {
-            toast.message("Couldn't save", detail: error.localizedDescription, isError: true)
+            toast.message(String(localized: "Couldn't save"), detail: error.localizedDescription, isError: true)
         }
     }
 }

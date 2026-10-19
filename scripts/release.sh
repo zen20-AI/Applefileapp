@@ -76,7 +76,9 @@ echo "Prepared $OUT/Petal-${VERSION}.dmg and appcast.xml (commit it after publis
 if [[ "${PUBLISH:-0}" == "1" ]]; then
     NOTES_ARGS=(--notes "Petal ${VERSION}")
     [[ -f "$NOTES_FILE" ]] && NOTES_ARGS=(--notes-file "$NOTES_FILE")
+    # "Petal.dmg" gives the download page a link that always points at the newest version.
+    cp "$OUT/Petal-${VERSION}.dmg" "$OUT/Petal.dmg"
     gh release create "v${VERSION}" -R "$RELEASES_REPO" --title "Petal ${VERSION}" "${NOTES_ARGS[@]}" \
-        "$OUT/Petal-${VERSION}.dmg" "$OUT/appcast.xml"
+        "$OUT/Petal-${VERSION}.dmg" "$OUT/Petal.dmg" "$OUT/appcast.xml"
     echo "Published v${VERSION} to $RELEASES_REPO"
 fi

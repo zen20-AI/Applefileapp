@@ -24,6 +24,7 @@ struct ManagerView: View {
                 switch navigation.section {
                 case .workspace: WorkspaceView(coordinator: coordinator, workspace: workspace)
                 case .history: HistoryView(history: history, workspace: workspace, navigation: navigation)
+                case .automation: AutomationView(watcher: .shared, settings: settings)
                 case .settings: SettingsView(settings: settings)
                 case .about: AboutView(history: history)
                 }
@@ -139,6 +140,10 @@ struct WorkspaceView: View {
         if file.kind == .pdf {
             Button("Split into Single Pages") { coordinator.splitPages(menuTargets(file)) }
         }
+        if TextRecognizer.canRecognize(file.url) {
+            Button("Copy Text") { coordinator.copyText(menuTargets(file)) }
+        }
+        Button("Rename…") { coordinator.rename(menuTargets(file)) }
         Divider()
         Button("Remove from List") { workspace.remove(Set(menuTargets(file))) }
         Button("Move to Trash", role: .destructive) { withAnimation(Theme.spring) { workspace.trash(menuTargets(file)) } }
@@ -199,14 +204,26 @@ struct WorkspaceView: View {
             Button { coordinator.perform(.tool(.compress), on: targets) } label: {
                 Label("Compress", systemImage: Tool.compress.symbol)
             }
-            .help("Compress images and PDFs")
+            .help("Make images, PDFs and videos smaller")
             .disabled(!Tool.compress.isAvailable(for: targets))
 
-            Button { coordinator.perform(.tool(.resize), on: targets) } label: {
-                Label("Resize", systemImage: Tool.resize.symbol)
+            Menu {
+                toolButton(.resize)
+                toolButton(.cutOut)
+                Button { coordinator.stripMetadata(targets) } label: {
+                    Label("Remove Metadata", systemImage: "location.slash")
+                }
+                .disabled(!Tool.metadata.isAvailable(for: targets))
+                toolButton(.animate)
+                Divider()
+                ForEach([Tool.crop, .edit, .annotate, .redact, .addBackground, .metadata]) { tool in
+                    toolButton(tool)
+                }
+            } label: {
+                Label("Image", systemImage: "photo")
             }
-            .help("Resize images")
-            .disabled(!Tool.resize.isAvailable(for: targets))
+            .help("Resize, cut out, animate or edit images")
+            .disabled(!targets.contains { FileKind(url: $0) == .image })
 
             Menu {
                 Button { coordinator.merge(targets) } label: {
@@ -217,34 +234,29 @@ struct WorkspaceView: View {
                     Label("Organize Pages…", systemImage: Tool.pages.symbol)
                 }
                 .disabled(!Tool.pages.isAvailable(for: targets))
-                Divider()
                 Button { coordinator.splitPages(targets) } label: {
                     Label("Split into Single Pages", systemImage: Tool.split.symbol)
                 }
                 .disabled(!targets.contains { FileKind(url: $0) == .pdf })
+                Divider()
+                toolButton(.secure, title: String(localized: "Password, Watermark, Numbers, Sign…"))
             } label: {
                 Label("PDF", systemImage: "doc.richtext")
             }
-            .help("Merge, organize or split PDFs (merging follows list order — drag rows to reorder)")
+            .help("Merge, organize, split, protect or sign PDFs (merging follows list order)")
             .disabled(!Tool.pages.isAvailable(for: targets))
 
-            Button { coordinator.stripMetadata(targets) } label: {
-                Label("Remove Metadata", systemImage: "location.slash")
+            Button { coordinator.copyText(targets) } label: {
+                Label("Copy Text", systemImage: Tool.copyText.symbol)
             }
-            .help("Save copies without EXIF / GPS data")
-            .disabled(!Tool.metadata.isAvailable(for: targets))
+            .help("Read the text in images and PDFs (Thai and English, on this Mac)")
+            .disabled(!Tool.copyText.isAvailable(for: targets))
 
-            Menu {
-                ForEach([Tool.crop, .edit, .annotate, .addBackground, .redact, .metadata]) { tool in
-                    Button { coordinator.perform(.tool(tool), on: targets) } label: {
-                        Label(tool.title, systemImage: tool.symbol)
-                    }
-                }
-            } label: {
-                Label("Edit", systemImage: "wand.and.stars")
+            Button { coordinator.rename(targets) } label: {
+                Label("Rename", systemImage: "character.cursor.ibeam")
             }
-            .help("Open an editor for the first image")
-            .disabled(!targets.contains { FileKind(url: $0) == .image })
+            .help("Rename files from a pattern, e.g. “Trip {n}”")
+            .disabled(targets.isEmpty)
 
             Button { coordinator.showRing(for: targets) } label: {
                 Label("Ring", systemImage: "circle.hexagongrid.circle")
@@ -252,6 +264,13 @@ struct WorkspaceView: View {
             .help("Open the radial ring for these files")
             .disabled(targets.isEmpty)
         }
+    }
+
+    private func toolButton(_ tool: Tool, title: String? = nil) -> some View {
+        Button { coordinator.perform(.tool(tool), on: targets) } label: {
+            Label(title ?? tool.title, systemImage: tool.symbol)
+        }
+        .disabled(!tool.isAvailable(for: targets))
     }
 }
 
@@ -421,6 +440,22 @@ struct SettingsView: View {
                 Toggle("Reveal results in Finder after saving", isOn: $settings.revealAfterSaving)
             }
 
+            LanguageSection()
+
+            Section {
+                FolderAccessList(access: .shared)
+                HStack {
+                    Button("Allow All") { FolderAccess.shared.requestAll() }
+                        .disabled(FolderAccess.shared.allGranted)
+                    Button("Full Disk Access…") { FolderAccess.shared.openFullDiskAccessSettings() }
+                }
+            } header: {
+                Text("Folder Access")
+            } footer: {
+                Text("Lets Petal read and save files in these folders without asking each time. For external drives and everything else, add Petal under Full Disk Access.")
+                    .foregroundStyle(.secondary)
+            }
+
             Section {
                 Toggle("Show the ring when dragging files", isOn: $settings.ringEnabled)
                 LabeledContent("Drag distance before it opens") {
@@ -462,6 +497,11 @@ struct SettingsView: View {
                 }
                 LabeledContent("Compression") {
                     qualitySlider($settings.compressQuality, range: 0.2...0.9)
+                }
+                Picker("Video compression", selection: $settings.videoQualityRaw) {
+                    ForEach(MediaMaker.VideoQuality.allCases, id: \.rawValue) { quality in
+                        Text(quality.label).tag(quality.rawValue)
+                    }
                 }
                 Picker("PDF → image resolution", selection: $settings.pdfDPI) {
                     Text("72 dpi (screen)").tag(72.0)
@@ -543,6 +583,8 @@ struct AboutView: View {
                     tip("circle.hexagongrid.circle", "Switch rings", "Hold the file over the hub for half a second to flip between Convert and Tools.")
                     tip("tray.full", "Work in batches", "Use the Workspace to convert, compress, resize, merge or split many files at once. Right-click a PDF to organize its pages.")
                     tip("lock.shield", "Originals are safe", "Results are always saved as new files. Nothing is overwritten or uploaded.")
+                    tip("text.viewfinder", "Read text anywhere", "Copy Text reads Thai and English from photos, screenshots and scanned PDFs — all on this Mac.")
+                    tip("bolt", "Let it run by itself", "Automation watches folders, adds ⌥⌘P for Finder and Quick Actions on right-click.")
                 }
                 .padding(20)
                 .frame(maxWidth: 520)
@@ -554,7 +596,7 @@ struct AboutView: View {
         .navigationTitle("About")
     }
 
-    private func tip(_ symbol: String, _ title: String, _ detail: String) -> some View {
+    private func tip(_ symbol: String, _ title: LocalizedStringKey, _ detail: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: symbol)
                 .font(.title3)
