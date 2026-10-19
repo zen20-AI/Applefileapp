@@ -8,10 +8,13 @@ import UniformTypeIdentifiers
 final class EditorWindows {
     private var windows: [NSWindow] = []
 
-    func open<Content: View>(size: CGSize, @ViewBuilder content: (_ close: @escaping () -> Void) -> Content) {
+    func open<Content: View>(
+        size: CGSize, resizable: Bool = false,
+        @ViewBuilder content: (_ close: @escaping () -> Void) -> Content
+    ) {
         let window = NSWindow(
             contentRect: CGRect(origin: .zero, size: size),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            styleMask: resizable ? [.titled, .closable, .resizable, .fullSizeContentView] : [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false)
         window.titlebarAppearsTransparent = true
@@ -19,12 +22,21 @@ final class EditorWindows {
         window.isMovableByWindowBackground = false
         window.isReleasedWhenClosed = false
         window.level = .floating
+        // Let the glass background show what's behind the window.
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.animationBehavior = .utilityWindow
         for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
             window.standardWindowButton(button)?.isHidden = true
         }
 
         let close: () -> Void = { [weak window] in window?.close() }
-        window.contentView = NSHostingView(rootView: content(close).frame(width: size.width, height: size.height))
+        if resizable {
+            window.contentMinSize = CGSize(width: size.width * 0.75, height: size.height * 0.75)
+            window.contentView = NSHostingView(rootView: content(close).frame(minWidth: size.width * 0.75, minHeight: size.height * 0.75))
+        } else {
+            window.contentView = NSHostingView(rootView: content(close).frame(width: size.width, height: size.height))
+        }
 
         _ = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] note in
             MainActor.assumeIsolated {

@@ -85,7 +85,7 @@ struct MetadataView: View {
                     }
                     .padding(12)
                 }
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.35)))
+                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.surface))
             }
         } footer: {
             HStack {

@@ -6,13 +6,16 @@ import Foundation
 ///     Page 001.jpg  →  Page 001 Cropped.jpg
 ///     Page 001 Cropped.jpg  →  Page 001 Cropped With Background.png
 public enum OutputNaming {
+    /// When set, results go into this folder instead of next to the source.
+    nonisolated(unsafe) public static var destinationDirectory: URL?
+
     public static func url(
         for source: URL,
         suffix: String? = nil,
         fileExtension: String,
         exists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) -> URL {
-        let directory = source.deletingLastPathComponent()
+        let directory = destinationDirectory ?? source.deletingLastPathComponent()
         var base = source.deletingPathExtension().lastPathComponent
         if let suffix, !suffix.isEmpty {
             base += " " + suffix

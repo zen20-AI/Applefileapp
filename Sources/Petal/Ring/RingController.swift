@@ -27,7 +27,7 @@ final class FloatingPanel: NSPanel {
 final class RingController {
     let model = RingModel()
     private lazy var panel: FloatingPanel = {
-        let side = RingModel.diameter + 40
+        let side = RingModel.diameter + 80
         let panel = FloatingPanel(size: CGSize(width: side, height: side))
         let host = NSHostingView(rootView: RingView(model: model).frame(width: side, height: side))
         host.frame = CGRect(x: 0, y: 0, width: side, height: side)
@@ -61,13 +61,14 @@ final class RingController {
         origin.y = min(max(origin.y, visible.minY), visible.maxY - size.height)
         panel.setFrameOrigin(origin)
 
-        panel.alphaValue = 0
+        // SwiftUI handles the fade + pop; restart it from the collapsed state each time.
+        model.isPresented = false
+        panel.alphaValue = 1
         panel.orderFrontRegardless()
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.15
-            panel.animator().alphaValue = 1
-        }
         isVisible = true
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { if self.isVisible { self.model.isPresented = true } }
+        }
 
         if interaction == .click {
             clickOutsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
@@ -83,15 +84,12 @@ final class RingController {
             NSEvent.removeMonitor(monitor)
             clickOutsideMonitor = nil
         }
-        let panel = self.panel
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.12
-            panel.animator().alphaValue = 0
-        }, completionHandler: {
-            MainActor.assumeIsolated {
-                if !self.isVisible { panel.orderOut(nil) }
-            }
-        })
+        model.isPresented = false
         model.updateHover(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            MainActor.assumeIsolated {
+                if !self.isVisible { self.panel.orderOut(nil) }
+            }
+        }
     }
 }

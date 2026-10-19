@@ -13,6 +13,9 @@ public struct CompressionResult {
 }
 
 public enum Compressor {
+    /// Default quality used by `compress(_:)`.
+    nonisolated(unsafe) public static var defaultQuality: Double = 0.6
+
     public static func canCompress(_ url: URL) -> Bool {
         switch FileKind(url: url) {
         case .image, .pdf: return true
@@ -21,7 +24,7 @@ public enum Compressor {
     }
 
     /// Writes a smaller "<name> Compressed" copy; throws `noSavings` (and removes it) if it isn't smaller.
-    public static func compress(_ url: URL, quality: Double = 0.6) throws -> CompressionResult {
+    public static func compress(_ url: URL, quality: Double? = nil) throws -> CompressionResult {
         let originalSize = url.fileSize
         let output: URL
 
@@ -39,7 +42,7 @@ public enum Compressor {
             let image = try ImageFile.load(url)
             let type = lossyType(for: url, hasAlpha: ImageFile.hasAlpha(image))
             output = OutputNaming.url(for: url, suffix: "Compressed", fileExtension: type.preferredFilenameExtension ?? "jpg")
-            try ImageFile.write(image, to: output, type: type, quality: quality)
+            try ImageFile.write(image, to: output, type: type, quality: quality ?? defaultQuality)
 
         default:
             throw FileAppError.unsupported("Compressing \(url.pathExtension.uppercased())")

@@ -9,7 +9,10 @@ import UniformTypeIdentifiers
 /// Format conversion for images, PDFs and text documents.
 public enum Converter {
     /// Render resolution for PDF pages (a US Letter page becomes 2550 × 3300 px).
-    public static let pdfRenderDPI: CGFloat = 300
+    nonisolated(unsafe) public static var pdfRenderDPI: CGFloat = 300
+
+    /// Encoder quality (0…1) for lossy targets such as JPG and HEIC.
+    nonisolated(unsafe) public static var lossyQuality: Double = 0.9
 
     public static func isAvailable(_ format: OutputFormat, for url: URL) -> Bool {
         if format.matches(url) { return false }
@@ -35,7 +38,7 @@ public enum Converter {
             return [try imageToPDF(url)]
         case (.image, _):
             let output = OutputNaming.url(for: url, fileExtension: format.fileExtension)
-            try ImageFile.write(try ImageFile.load(url), to: output, type: format.utType!, quality: format.isLossy ? 0.9 : nil)
+            try ImageFile.write(try ImageFile.load(url), to: output, type: format.utType!, quality: format.isLossy ? lossyQuality : nil)
             return [output]
         case (.pdf, .docx):
             return [try pdfToDocx(url)]
@@ -70,11 +73,11 @@ public enum Converter {
 
     // MARK: - PDF
 
-    public static func renderPage(_ page: CGPDFPage, dpi: CGFloat = pdfRenderDPI) -> CGImage? {
+    public static func renderPage(_ page: CGPDFPage, dpi: CGFloat? = nil) -> CGImage? {
         let box = page.getBoxRect(.cropBox)
         let rotated = page.rotationAngle % 180 != 0
         let pointSize = rotated ? CGSize(width: box.height, height: box.width) : box.size
-        let scale = min(dpi / 72, 12000 / max(pointSize.width, pointSize.height))
+        let scale = min((dpi ?? pdfRenderDPI) / 72, 12000 / max(pointSize.width, pointSize.height))
         let width = Int((pointSize.width * scale).rounded())
         let height = Int((pointSize.height * scale).rounded())
         guard let ctx = ImageFile.makeContext(width: width, height: height) else { return nil }
@@ -97,7 +100,7 @@ public enum Converter {
         for number in 1...count {
             guard let page = document.page(at: number), let image = renderPage(page) else { continue }
             let output = OutputNaming.url(for: url, suffix: count > 1 ? "Page \(number)" : nil, fileExtension: format.fileExtension)
-            try ImageFile.write(image, to: output, type: format.utType!, quality: format.isLossy ? 0.9 : nil)
+            try ImageFile.write(image, to: output, type: format.utType!, quality: format.isLossy ? lossyQuality : nil)
             outputs.append(output)
         }
         if outputs.isEmpty { throw FileAppError.unreadable(url) }

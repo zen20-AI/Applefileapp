@@ -91,7 +91,7 @@ struct BackgroundEditor: View {
         EditorScaffold(title: "Add BG", onClose: onClose) {
             VStack(alignment: .leading, spacing: 16) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.25))
+                    RoundedRectangle(cornerRadius: 10).fill(Theme.surface)
                     if let rendered {
                         Image(nsImage: rendered)
                             .resizable()
@@ -115,7 +115,7 @@ struct BackgroundEditor: View {
                                     .font(.system(size: 12))
                                     .foregroundStyle(Theme.ink.opacity(0.7))
                                     .frame(width: 26, height: 26)
-                                    .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.5)))
+                                    .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surfaceStrong))
                             }
                             .buttonStyle(.plain)
                             .help("Use an image as the background")
@@ -177,7 +177,7 @@ struct BackgroundEditor: View {
                 .frame(width: 26, height: 26)
                 .overlay(
                     RoundedRectangle(cornerRadius: 7)
-                        .strokeBorder(selected ? Theme.accent : Color.white.opacity(0.6), lineWidth: selected ? 2.5 : 1))
+                        .strokeBorder(selected ? Theme.accent : Theme.hairline, lineWidth: selected ? 2.5 : 1))
         }
         .buttonStyle(.plain)
     }

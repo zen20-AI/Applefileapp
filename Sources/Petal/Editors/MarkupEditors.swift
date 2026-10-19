@@ -60,7 +60,7 @@ struct AnnotateEditor: View {
     let onClose: () -> Void
 
     private static let palette: [Color] = [
-        Color(red: 1, green: 0.23, blue: 0.19), Theme.accent, Color(red: 1, green: 0.84, blue: 0.04),
+        Color(red: 1, green: 0.23, blue: 0.19), Color(red: 1, green: 0.58, blue: 0), Color(red: 1, green: 0.84, blue: 0.04), Theme.accent,
         Color(red: 0.2, green: 0.78, blue: 0.35), Color(red: 0, green: 0.48, blue: 1), .black, .white,
     ]
 
@@ -108,7 +108,7 @@ struct AnnotateEditor: View {
                         Circle()
                             .fill(swatch)
                             .frame(width: 20, height: 20)
-                            .overlay(Circle().strokeBorder(swatch == color ? Theme.ink : Color.white.opacity(0.7), lineWidth: 2))
+                            .overlay(Circle().strokeBorder(swatch == color ? Theme.ink : Theme.hairline, lineWidth: 2))
                             .onTapGesture { color = swatch }
                     }
                     Spacer()

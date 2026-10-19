@@ -22,7 +22,7 @@ struct AdjustEditor: View {
         EditorScaffold(title: "Edit Image", onClose: onClose) {
             VStack(spacing: 14) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.25))
+                    RoundedRectangle(cornerRadius: 10).fill(Theme.surface)
                     if let rendered {
                         Image(nsImage: rendered)
                             .resizable()

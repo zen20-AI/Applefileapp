@@ -1,15 +1,20 @@
+import AppKit
 import FileAppCore
 import Foundation
 import SwiftUI
 
 enum Tool: String, CaseIterable, Identifiable {
-    case compress, metadata, edit, annotate, addBackground, crop, redact
+    case compress, resize, metadata, edit, annotate, addBackground, crop, redact, merge, pages, split
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .compress: return "Compress"
+        case .resize: return "Resize"
+        case .merge: return "Merge PDF"
+        case .pages: return "Pages"
+        case .split: return "Split PDF"
         case .metadata: return "Metadata"
         case .edit: return "Edit"
         case .annotate: return "Annotate"
@@ -22,6 +27,10 @@ enum Tool: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .compress: return "arrow.down.right.and.arrow.up.left"
+        case .resize: return "arrow.up.left.and.arrow.down.right"
+        case .merge: return "doc.on.doc"
+        case .pages: return "rectangle.stack"
+        case .split: return "scissors"
         case .metadata: return "tag"
         case .edit: return "slider.horizontal.3"
         case .annotate: return "pencil.tip.crop.circle"
@@ -31,9 +40,17 @@ enum Tool: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Merging needs at least two inputs; everything else needs one eligible file.
+    func isAvailable(for urls: [URL]) -> Bool {
+        if self == .merge { return urls.filter(PDFMerger.canMerge).count > 1 }
+        return urls.contains(where: isAvailable(for:))
+    }
+
     func isAvailable(for url: URL) -> Bool {
         switch self {
         case .compress: return Compressor.canCompress(url)
+        case .merge, .pages: return PDFMerger.canMerge(url)
+        case .split: return FileKind(url: url) == .pdf && PDFPages.pageCount(of: url) > 1
         default: return FileKind(url: url) == .image
         }
     }
@@ -68,6 +85,8 @@ enum RingInteraction {
 @MainActor
 final class RingModel: ObservableObject {
     static let diameter: CGFloat = 340
+    /// How long a dragged file must rest on the hub to flip rings.
+    static let hubFlipDelay: TimeInterval = 0.5
 
     @Published private(set) var urls: [URL] = []
     @Published var mode: RingMode = .tools
@@ -75,6 +94,10 @@ final class RingModel: ObservableObject {
     @Published private(set) var convertItems: [RingItem] = []
     @Published private(set) var toolItems: [RingItem] = []
     @Published private(set) var hubFlipProgress = false
+    /// Drives the petals' staggered pop-in each time the ring appears.
+    @Published var isPresented = false
+    /// Icon of the (first) dragged file, shown in the hub.
+    @Published private(set) var fileIcon: NSImage?
     private(set) var interaction: RingInteraction = .drag
 
     var onAction: ((RingAction, [URL]) -> Void)?
@@ -101,6 +124,7 @@ final class RingModel: ObservableObject {
     func configure(urls: [URL], interaction: RingInteraction) {
         self.urls = urls
         self.interaction = interaction
+        fileIcon = urls.first.map { NSWorkspace.shared.icon(forFile: $0.path) }
         hover = .outside
         cancelHubTimer()
 
@@ -118,7 +142,7 @@ final class RingModel: ObservableObject {
                 title: tool.title,
                 symbol: tool.symbol,
                 action: .tool(tool),
-                enabled: urls.contains { tool.isAvailable(for: $0) })
+                enabled: tool.isAvailable(for: urls))
         }
 
         // Images open on the tools ring; everything else is mostly about converting.
@@ -130,6 +154,9 @@ final class RingModel: ObservableObject {
         let hit = point.map { geometry.hit($0, center: center) } ?? .outside
         guard hit != hover else { return }
         hover = hit
+        if case .segment(let index) = hit, items.indices.contains(index), items[index].enabled {
+            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+        }
         if hit == .center, interaction == .drag {
             startHubTimer()
         } else {
@@ -151,7 +178,7 @@ final class RingModel: ObservableObject {
     func tap(at point: CGPoint) {
         switch geometry.hit(point, center: center) {
         case .center:
-            withAnimation(.spring(duration: 0.3)) { mode = mode.toggled }
+            withAnimation(Theme.spring) { mode = mode.toggled }
         case .segment:
             updateHover(point)
             commit()
@@ -164,10 +191,11 @@ final class RingModel: ObservableObject {
     private func startHubTimer() {
         cancelHubTimer()
         hubFlipProgress = true
-        hubTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: false) { [weak self] _ in
+        hubTimer = Timer.scheduledTimer(withTimeInterval: Self.hubFlipDelay, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, self.hover == .center else { return }
-                withAnimation(.spring(duration: 0.3)) { self.mode = self.mode.toggled }
+                withAnimation(Theme.spring) { self.mode = self.mode.toggled }
+                NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
                 self.hubFlipProgress = false
             }
         }

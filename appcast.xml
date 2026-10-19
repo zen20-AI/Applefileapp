@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>Petal</title>
+        <item>
+            <title>Petal 1.0.0</title>
+            <pubDate>Mon, 19 Oct 2026 17:15:54 +0700</pubDate>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[## Petal 1.0.0
+
+- First release: drag ring, control panel, Workspace, History and Settings.
+]]></description>
+            <enclosure url="https://github.com/zen20-AI/petal-releases/releases/download/v1.0.0/Petal-1.0.0.dmg" type="application/octet-stream" sparkle:edSignature="umJ5h5y6aj3PcmiZvWtXr/s9csXvEPhLAMcbgdDyHudZ+jMcCN9QbXmNVHW5SSrP+dZxsGpCO2JPOXKoC8+PAg==" length="3360975"/>
+        </item>
+    </channel>
+</rss>
