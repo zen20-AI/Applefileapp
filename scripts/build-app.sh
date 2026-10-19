@@ -12,7 +12,7 @@ VERSION="${VERSION:-1.0.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 APP="build/Petal.app"
 # Sparkle update feed: appcast.xml attached to the latest release of the public releases repo.
-FEED_URL="${FEED_URL-https://github.com/zen20-AI/petal-releases/releases/latest/download/appcast.xml}"
+FEED_URL="${FEED_URL-https://github.com/AImunich20/petal-releases/releases/latest/download/appcast.xml}"
 # EdDSA public key matching the private key in the login keychain (account "petal", see scripts/release.sh).
 SPARKLE_PUBLIC_KEY="8/6VGk8EEFt1xtMKHKDSALTKI7FtVNwBVDYbS7NGHeY="
 

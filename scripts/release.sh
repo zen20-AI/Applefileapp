@@ -13,7 +13,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 : "${VERSION:?Set VERSION, e.g. VERSION=1.1.0}"
-RELEASES_REPO="${RELEASES_REPO:-zen20-AI/petal-releases}"
+RELEASES_REPO="${RELEASES_REPO:-AImunich20/petal-releases}"
 export VERSION UNIVERSAL="${UNIVERSAL:-1}"
 export FEED_URL="${FEED_URL-https://github.com/$RELEASES_REPO/releases/latest/download/appcast.xml}"
 

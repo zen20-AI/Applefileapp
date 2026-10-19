@@ -97,8 +97,8 @@ Set `SIGN_IDENTITY="Developer ID Application: …"` to sign with a real certific
 
 Petal checks for updates daily and from **Settings → Updates** or **Updates** in the control
 panel. The feed is
-`https://github.com/zen20-AI/petal-releases/releases/latest/download/appcast.xml`, so
-releases go to a separate **public** repo (`zen20-AI/petal-releases`); override with
+`https://github.com/AImunich20/petal-releases/releases/latest/download/appcast.xml`, so
+releases go to a separate **public** repo (`AImunich20/petal-releases`); override with
 `FEED_URL=…`, or `FEED_URL=` to build without updates.
 
 Updates are signed with an EdDSA key. The public key is in `scripts/build-app.sh`; the

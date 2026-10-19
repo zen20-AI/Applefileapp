@@ -12,7 +12,7 @@
 
 - First release: drag ring, control panel, Workspace, History and Settings.
 ]]></description>
-            <enclosure url="https://github.com/zen20-AI/petal-releases/releases/download/v1.0.0/Petal-1.0.0.dmg" type="application/octet-stream" sparkle:edSignature="umJ5h5y6aj3PcmiZvWtXr/s9csXvEPhLAMcbgdDyHudZ+jMcCN9QbXmNVHW5SSrP+dZxsGpCO2JPOXKoC8+PAg==" length="3360975"/>
+            <enclosure url="https://github.com/AImunich20/petal-releases/releases/download/v1.0.0/Petal-1.0.0.dmg" type="application/octet-stream" sparkle:edSignature="umJ5h5y6aj3PcmiZvWtXr/s9csXvEPhLAMcbgdDyHudZ+jMcCN9QbXmNVHW5SSrP+dZxsGpCO2JPOXKoC8+PAg==" length="3360975"/>
         </item>
     </channel>
 </rss>
