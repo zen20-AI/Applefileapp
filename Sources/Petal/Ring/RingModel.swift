@@ -5,7 +5,7 @@ import SwiftUI
 
 enum Tool: String, CaseIterable, Identifiable {
     case compress, resize, cutOut, copyText, edit, crop, annotate, redact, addBackground, metadata
-    case animate, merge, pages, split, secure
+    case animate, merge, pages, split, secure, shelf
 
     var id: String { rawValue }
 
@@ -26,6 +26,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .pages: return String(localized: "Pages")
         case .split: return String(localized: "Split PDF")
         case .secure: return String(localized: "PDF Tools")
+        case .shelf: return String(localized: "Shelf")
         }
     }
 
@@ -46,6 +47,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .pages: return "rectangle.stack"
         case .split: return "scissors"
         case .secure: return "lock.doc"
+        case .shelf: return "tray.and.arrow.down"
         }
     }
 
@@ -66,6 +68,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .merge, .pages: return PDFMerger.canMerge(url)
         case .split: return kind == .pdf && PDFPages.pageCount(of: url) > 1
         case .secure: return kind == .pdf
+        case .shelf: return true
         default: return kind == .image
         }
     }
@@ -154,14 +157,15 @@ final class RingModel: ObservableObject {
         toolItems = Self.applicable(Tool.allCases.map { tool in
             RingItem(
                 id: tool.id,
-                title: tool.title,
+                // "≤ 1 MB" when Compress aims for a size, so it's clear what dropping there does.
+                title: tool == .compress ? Compressor.defaultLimit.map { "≤ \(ByteFormatter.limit($0))" } ?? tool.title : tool.title,
                 symbol: tool.symbol,
                 action: .tool(tool),
                 enabled: tool.isAvailable(for: urls))
         })
 
         // Images, PDFs and videos open on the tools ring; documents are about converting.
-        let hasTools = toolItems.contains(where: \.enabled)
+        let hasTools = toolItems.contains { $0.enabled && $0.action != .tool(.shelf) }
         let hasFormats = convertItems.contains(where: \.enabled)
         mode = hasTools && (urls.allSatisfy { FileKind(url: $0) != .document } || !hasFormats) ? .tools : .convert
     }

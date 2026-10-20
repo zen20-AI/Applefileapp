@@ -201,10 +201,18 @@ struct WorkspaceView: View {
             }
             .help("Convert to another format")
 
-            Button { coordinator.perform(.tool(.compress), on: targets) } label: {
+            Menu {
+                Button("Best Quality") { coordinator.compress(targets, limit: nil) }
+                Divider()
+                ForEach(Compressor.sizeLimits, id: \.self) { limit in
+                    Button(String(localized: "Under \(ByteFormatter.limit(limit))")) { coordinator.compress(targets, limit: limit) }
+                }
+            } label: {
                 Label("Compress", systemImage: Tool.compress.symbol)
+            } primaryAction: {
+                coordinator.perform(.tool(.compress), on: targets)
             }
-            .help("Make images, PDFs and videos smaller")
+            .help("Make images, PDFs and videos smaller · hold the arrow to pick a size limit")
             .disabled(!Tool.compress.isAvailable(for: targets))
 
             Menu {
@@ -438,6 +446,7 @@ struct SettingsView: View {
                     .onChange(of: launchAtLogin) { settings.launchAtLogin = launchAtLogin }
                 Toggle("Always show Dock icon", isOn: $settings.showDockIcon)
                 Toggle("Reveal results in Finder after saving", isOn: $settings.revealAfterSaving)
+                Toggle("Keep new results on the Shelf", isOn: $settings.shelfCollectsResults)
             }
 
             LanguageSection()
@@ -495,8 +504,17 @@ struct SettingsView: View {
                 LabeledContent("JPG / HEIC conversion") {
                     qualitySlider($settings.lossyQuality, range: 0.5...1)
                 }
-                LabeledContent("Compression") {
-                    qualitySlider($settings.compressQuality, range: 0.2...0.9)
+                Picker("Compress to", selection: $settings.compressLimit) {
+                    Text("Best quality").tag(Int64(0))
+                    Divider()
+                    ForEach(Compressor.sizeLimits, id: \.self) { limit in
+                        Text(String(localized: "Under \(ByteFormatter.limit(limit))")).tag(limit)
+                    }
+                }
+                if settings.compressLimit == 0 {
+                    LabeledContent("Compression") {
+                        qualitySlider($settings.compressQuality, range: 0.2...0.9)
+                    }
                 }
                 Picker("Video compression", selection: $settings.videoQualityRaw) {
                     ForEach(MediaMaker.VideoQuality.allCases, id: \.rawValue) { quality in

@@ -306,12 +306,79 @@ import UniformTypeIdentifiers
     }
 }
 
+@Suite(.serialized) struct SizeLimitTests {
+    @Test func imageFitsUnderLimit() throws {
+        try withTemporaryDirectory { dir in
+            let png = dir.appendingPathComponent("Photo.png")
+            try ImageFile.write(try noiseImage(width: 1600, height: 1200), to: png, type: .png)
+            let limit: Int64 = 200 * 1024
+            #expect(png.fileSize > limit)
+            let result = try Compressor.compress(png, under: limit)
+            #expect(result.output.lastPathComponent == "Photo Compressed.jpg")
+            #expect(result.output.fileSize <= limit)
+            #expect(result.compressedSize == result.output.fileSize)
+            #expect(try ImageFile.load(result.output).width > 0)
+        }
+    }
+
+    @Test func smallFileIsLeftAlone() throws {
+        try withTemporaryDirectory { dir in
+            let png = dir.appendingPathComponent("Small.png")
+            try ImageFile.write(try solidImage(width: 20, height: 20), to: png, type: .png)
+            #expect(throws: FileAppError.self) { try Compressor.compress(png, under: 1024 * 1024) }
+            #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("Small Compressed.jpg").path))
+        }
+    }
+
+    @Test func pdfFitsUnderLimit() throws {
+        try withTemporaryDirectory { dir in
+            let document = PDFDocument()
+            for _ in 0..<3 {
+                let image = try noiseImage(width: 1200, height: 1600)
+                let page = try #require(PDFPage(image: NSImage(cgImage: image, size: CGSize(width: 600, height: 800))))
+                document.insert(page, at: document.pageCount)
+            }
+            let url = dir.appendingPathComponent("Scan.pdf")
+            #expect(document.write(to: url))
+            let limit: Int64 = 300 * 1024
+            #expect(url.fileSize > limit)
+            let result = try Compressor.compress(url, under: limit)
+            #expect(result.output.fileSize <= limit)
+            let output = try #require(PDFDocument(url: result.output))
+            #expect(output.pageCount == 3)
+            #expect(output.page(at: 0)?.bounds(for: .cropBox).size == CGSize(width: 600, height: 800))
+        }
+    }
+
+    @Test func defaultLimitAppliesToPlainCompress() throws {
+        try withTemporaryDirectory { dir in
+            let png = dir.appendingPathComponent("Shot.png")
+            try ImageFile.write(try noiseImage(width: 800, height: 600), to: png, type: .png)
+            Compressor.defaultLimit = 100 * 1024
+            defer { Compressor.defaultLimit = nil }
+            #expect(try Compressor.compress(png).output.fileSize <= 100 * 1024)
+        }
+    }
+}
+
 // MARK: - Helpers
 
 func solidImage(width: Int, height: Int) throws -> CGImage {
     let ctx = try #require(ImageFile.makeContext(width: width, height: height))
     ctx.setFillColor(CGColor(red: 1, green: 0.4, blue: 0.1, alpha: 1))
     ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    return try #require(ctx.makeImage())
+}
+
+/// Random pixels: compresses badly, like a detailed photo.
+func noiseImage(width: Int, height: Int) throws -> CGImage {
+    let ctx = try #require(ImageFile.makeContext(width: width, height: height))
+    let data = try #require(ctx.data).bindMemory(to: UInt32.self, capacity: ctx.bytesPerRow / 4 * height)
+    var seed: UInt32 = 2463534242
+    for i in 0..<(ctx.bytesPerRow / 4 * height) {
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5
+        data[i] = seed | 0xFF00_0000
+    }
     return try #require(ctx.makeImage())
 }
 

@@ -21,6 +21,9 @@ final class AppSettings: ObservableObject {
     @Published var showDockIcon: Bool { didSet { save() } }
     @Published var hotKeyEnabled: Bool { didSet { save() } }
     @Published var videoQualityRaw: String { didSet { save() } }
+    /// Compress aims for "no bigger than" this many bytes; 0 uses the quality slider instead.
+    @Published var compressLimit: Int64 { didSet { save() } }
+    @Published var shelfCollectsResults: Bool { didSet { save() } }
 
     var videoQuality: MediaMaker.VideoQuality { MediaMaker.VideoQuality(rawValue: videoQualityRaw) ?? .p720 }
 
@@ -40,6 +43,8 @@ final class AppSettings: ObservableObject {
             "showDockIcon": false,
             "hotKeyEnabled": true,
             "videoQuality": MediaMaker.VideoQuality.p720.rawValue,
+            "compressLimit": 0,
+            "shelfCollectsResults": true,
         ])
         ringEnabled = defaults.bool(forKey: "ringEnabled")
         activationDistance = defaults.double(forKey: "activationDistance")
@@ -52,6 +57,8 @@ final class AppSettings: ObservableObject {
         showDockIcon = defaults.bool(forKey: "showDockIcon")
         hotKeyEnabled = defaults.bool(forKey: "hotKeyEnabled")
         videoQualityRaw = defaults.string(forKey: "videoQuality") ?? MediaMaker.VideoQuality.p720.rawValue
+        compressLimit = Int64(defaults.integer(forKey: "compressLimit"))
+        shelfCollectsResults = defaults.bool(forKey: "shelfCollectsResults")
         applyToCore()
     }
 
@@ -74,7 +81,8 @@ final class AppSettings: ObservableObject {
 
     func resetToDefaults() {
         for key in ["ringEnabled", "activationDistance", "useCustomFolder", "customFolderPath", "lossyQuality",
-                    "compressQuality", "pdfDPI", "revealAfterSaving", "showDockIcon", "hotKeyEnabled", "videoQuality"] {
+                    "compressQuality", "pdfDPI", "revealAfterSaving", "showDockIcon", "hotKeyEnabled", "videoQuality",
+                    "compressLimit", "shelfCollectsResults"] {
             defaults.removeObject(forKey: key)
         }
         ringEnabled = defaults.bool(forKey: "ringEnabled")
@@ -88,6 +96,8 @@ final class AppSettings: ObservableObject {
         showDockIcon = defaults.bool(forKey: "showDockIcon")
         hotKeyEnabled = defaults.bool(forKey: "hotKeyEnabled")
         videoQualityRaw = defaults.string(forKey: "videoQuality") ?? MediaMaker.VideoQuality.p720.rawValue
+        compressLimit = Int64(defaults.integer(forKey: "compressLimit"))
+        shelfCollectsResults = defaults.bool(forKey: "shelfCollectsResults")
     }
 
     // MARK: - Launch at login
@@ -118,6 +128,8 @@ final class AppSettings: ObservableObject {
         defaults.set(showDockIcon, forKey: "showDockIcon")
         defaults.set(hotKeyEnabled, forKey: "hotKeyEnabled")
         defaults.set(videoQualityRaw, forKey: "videoQuality")
+        defaults.set(compressLimit, forKey: "compressLimit")
+        defaults.set(shelfCollectsResults, forKey: "shelfCollectsResults")
         applyToCore()
         onChange?()
     }
@@ -127,5 +139,6 @@ final class AppSettings: ObservableObject {
         Converter.lossyQuality = lossyQuality
         Converter.pdfRenderDPI = CGFloat(pdfDPI)
         Compressor.defaultQuality = compressQuality
+        Compressor.defaultLimit = compressLimit > 0 ? compressLimit : nil
     }
 }

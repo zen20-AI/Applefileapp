@@ -83,7 +83,7 @@ struct AutomationView: View {
             Section {
                 LabeledContent("Open the ring") { link("petal://ring") }
                 LabeledContent("Run a tool") { link("petal://run?action=compress&path=/path/to/file.jpg") }
-                Text("Actions: compress, resize, cutOut, copyText, pages, split, merge, rename, workspace, convert-jpg, convert-png, convert-pdf…")
+                Text("Actions: compress, compress-1mb (any size: compress-500kb, compress-2mb…), shelf, resize, cutOut, copyText, pages, split, merge, rename, workspace, convert-jpg, convert-png, convert-pdf…")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } header: {

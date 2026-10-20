@@ -92,6 +92,22 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>NSServices</key>
     <array>
         <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Add to Shelf</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>shelf</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Compress to Under 1 MB</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>compress-1mb</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
             <key>NSMenuItem</key><dict><key>default</key><string>Petal: Compress</string></dict>
             <key>NSMessage</key><string>runService</string>
             <key>NSPortName</key><string>Petal</string>

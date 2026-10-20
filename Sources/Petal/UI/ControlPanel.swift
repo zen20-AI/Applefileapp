@@ -98,6 +98,7 @@ struct ControlPanel: View {
     /// Round shortcuts, like the small buttons in Control Center.
     private var shortcuts: some View {
         HStack(spacing: 0) {
+            RoundShortcut(title: String(localized: "Shelf"), symbol: "tray.and.arrow.down.fill") { coordinator.shelf.toggle() }
             RoundShortcut(title: String(localized: "Workspace"), symbol: "tray.full.fill") { coordinator.manager.show(section: .workspace) }
             RoundShortcut(title: String(localized: "Automation"), symbol: "bolt.fill") { coordinator.manager.show(section: .automation) }
             RoundShortcut(title: String(localized: "History"), symbol: "clock.fill") { coordinator.manager.show(section: .history) }

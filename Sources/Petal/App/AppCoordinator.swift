@@ -15,6 +15,11 @@ final class AppCoordinator {
     private(set) lazy var manager = ManagerWindowController(coordinator: self)
     private lazy var services = ServiceProvider(coordinator: self)
     private var hotKey: HotKey?
+    private(set) lazy var shelf: ShelfController = {
+        let shelf = ShelfController()
+        shelf.onRing = { [weak self] urls in self?.showRing(for: urls, near: NSEvent.mouseLocation) }
+        return shelf
+    }()
 
     func start() {
         dragMonitor.onDragBegan = { [weak self] urls, location in
@@ -42,6 +47,8 @@ final class AppCoordinator {
             case .success(let outputs):
                 self.history.record(action: rule.action.title, sources: [source], outputs: outputs)
                 self.toast.message(rule.action.title, detail: source.lastPathComponent, outputs: outputs)
+            case .failure(FileAppError.alreadyUnder), .failure(FileAppError.noSavings):
+                break // nothing to do for this file; not worth a toast
             case .failure(let error):
                 self.toast.message(rule.action.title, detail: error.localizedDescription, isError: true)
             }
@@ -69,6 +76,9 @@ final class AppCoordinator {
         case "merge": merge(urls)
         case "rename": rename(urls)
         case "text", "copytext", "ocr": copyText(urls)
+        case "shelf": urls.isEmpty ? shelf.toggle() : shelf.add(urls)
+        case let name where name.hasPrefix("compress-") && ByteFormatter.parseLimit(String(name.dropFirst(9))) != nil:
+            compress(urls, limit: ByteFormatter.parseLimit(String(name.dropFirst(9))))
         default:
             if let tool = Tool(rawValue: name) ?? Tool.allCases.first(where: { $0.rawValue.lowercased() == name.lowercased() }) {
                 perform(.tool(tool), on: urls)
@@ -131,13 +141,10 @@ final class AppCoordinator {
             }
 
         case .tool(.compress):
-            let eligible = urls.filter { Tool.compress.isAvailable(for: $0) }
-            let quality = settings.videoQuality
-            runBatch(title: String(localized: "Compressing"), urls: eligible) { url in
-                FileKind(url: url) == .video
-                    ? [try MediaMaker.compressVideo(url, quality: quality)]
-                    : [try Compressor.compress(url).output]
-            }
+            compress(urls, limit: settings.compressLimit > 0 ? settings.compressLimit : nil)
+
+        case .tool(.shelf):
+            shelf.add(urls)
 
         case .tool(.cutOut):
             let images = urls.filter(BackgroundRemover.canRemove)
@@ -175,6 +182,18 @@ final class AppCoordinator {
         case .tool(let tool):
             guard let url = urls.first(where: { FileKind(url: $0) == .image }) else { return }
             openEditor(tool, for: url)
+        }
+    }
+
+    /// Compresses at the quality setting, or to "no bigger than `limit`" (videos always use the video preset).
+    func compress(_ urls: [URL], limit: Int64?) {
+        let eligible = urls.filter { Tool.compress.isAvailable(for: $0) }
+        let quality = settings.videoQuality
+        let title = limit.map { String(localized: "Compressing to under \(ByteFormatter.limit($0))") } ?? String(localized: "Compressing")
+        runBatch(title: title, urls: eligible) { url in
+            if FileKind(url: url) == .video { return [try MediaMaker.compressVideo(url, quality: quality)] }
+            if let limit { return [try Compressor.compress(url, under: limit).output] }
+            return [try Compressor.compress(url, quality: Compressor.defaultQuality).output]
         }
     }
 
@@ -419,9 +438,11 @@ final class AppCoordinator {
         }
     }
 
+    /// Results go to Finder and/or the Shelf, depending on the settings.
     private func revealIfNeeded(_ outputs: [URL]) {
-        guard settings.revealAfterSaving, !outputs.isEmpty else { return }
-        NSWorkspace.shared.activateFileViewerSelecting(outputs)
+        guard !outputs.isEmpty else { return }
+        if settings.shelfCollectsResults { shelf.add(outputs.filter { !$0.hasDirectoryPath }) }
+        if settings.revealAfterSaving { NSWorkspace.shared.activateFileViewerSelecting(outputs) }
     }
 
     // MARK: - Editors
@@ -480,7 +501,7 @@ final class AppCoordinator {
             editors.open(size: CGSize(width: 620, height: 680)) { close in
                 RedactEditor(image: image, onSave: { save("Redacted", false, $0, close) }, onClose: close)
             }
-        case .compress, .metadata, .resize, .merge, .pages, .split, .cutOut, .copyText, .animate, .secure:
+        case .compress, .metadata, .resize, .merge, .pages, .split, .cutOut, .copyText, .animate, .secure, .shelf:
             break
         }
     }
