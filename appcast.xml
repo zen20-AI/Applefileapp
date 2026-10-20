@@ -3,6 +3,25 @@
     <channel>
         <title>Petal</title>
         <item>
+            <title>Petal 1.2.0</title>
+            <pubDate>Tue, 20 Oct 2026 20:44:53 +0700</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[## Petal 1.2.0
+
+- **Compress to a size:** "Under 500 KB / 1 MB / 2 MB / 5 MB…" for upload forms and email. Petal keeps the best quality that fits. Set it in Settings → Compress to, or pick a size from the Compress menu in the Workspace.
+- **Shelf:** park files at the edge of the screen and drag them out later — one at a time or all at once. Petal's results land there too. Open it from the menu bar or the Shelf petal on the ring.
+- Finder Quick Actions: **Add to Shelf** and **Compress to Under 1 MB**.
+
+## Petal 1.2.0 (ไทย)
+
+- **บีบอัดตามขนาด:** ไม่เกิน 500 KB / 1 MB / 2 MB / 5 MB… สำหรับอัปโหลดเว็บหรือแนบอีเมล โดยคงคุณภาพให้ดีที่สุด
+- **Shelf:** ที่พักไฟล์ที่ขอบจอ ลากออกไปใช้ทีละไฟล์หรือทั้งหมดพร้อมกัน ผลลัพธ์จาก Petal มารอที่นี่ด้วย
+]]></description>
+            <enclosure url="https://github.com/AImunich20/petal-releases/releases/download/v1.2.0/Petal-1.2.0.dmg" type="application/octet-stream" sparkle:edSignature="dQclppdClkySIdWzmPZiUjXer2qHL8e2U94mS8rcGmXStKxVnpHEFqVNnueznOc2mic9wb+ucRfrC1VPv21VDA==" length="6320202"/>
+        </item>
+        <item>
             <title>Petal 1.1.0</title>
             <pubDate>Mon, 19 Oct 2026 22:01:19 +0700</pubDate>
             <sparkle:version>7</sparkle:version>
