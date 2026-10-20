@@ -59,7 +59,7 @@ struct PillPicker<Value: Hashable>: View {
                 Button {
                     withAnimation(Theme.snappy) { selection = option }
                 } label: {
-                    Text(title(option))
+                    Text(LocalizedStringKey(title(option)))
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(selected ? Color.white : Theme.ink.opacity(0.7))
                         .padding(.horizontal, 12)
@@ -137,7 +137,7 @@ struct ValueSlider: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.label)
                 .frame(width: 78, alignment: .leading)
@@ -164,7 +164,7 @@ struct EditorScaffold<Content: View, Footer: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.ink.opacity(0.85))
                 HStack {

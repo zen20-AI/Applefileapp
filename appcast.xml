@@ -3,16 +3,58 @@
     <channel>
         <title>Petal</title>
         <item>
+            <title>Petal 1.2.0</title>
+            <pubDate>Tue, 20 Oct 2026 20:44:53 +0700</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[## Petal 1.2.0
+
+- **Compress to a size:** "Under 500 KB / 1 MB / 2 MB / 5 MB…" for upload forms and email. Petal keeps the best quality that fits. Set it in Settings → Compress to, or pick a size from the Compress menu in the Workspace.
+- **Shelf:** park files at the edge of the screen and drag them out later — one at a time or all at once. Petal's results land there too. Open it from the menu bar or the Shelf petal on the ring.
+- Finder Quick Actions: **Add to Shelf** and **Compress to Under 1 MB**.
+
+## Petal 1.2.0 (ไทย)
+
+- **บีบอัดตามขนาด:** ไม่เกิน 500 KB / 1 MB / 2 MB / 5 MB… สำหรับอัปโหลดเว็บหรือแนบอีเมล โดยคงคุณภาพให้ดีที่สุด
+- **Shelf:** ที่พักไฟล์ที่ขอบจอ ลากออกไปใช้ทีละไฟล์หรือทั้งหมดพร้อมกัน ผลลัพธ์จาก Petal มารอที่นี่ด้วย
+]]></description>
+            <enclosure url="https://github.com/AImunich20/petal-releases/releases/download/v1.2.0/Petal-1.2.0.dmg" type="application/octet-stream" sparkle:edSignature="dQclppdClkySIdWzmPZiUjXer2qHL8e2U94mS8rcGmXStKxVnpHEFqVNnueznOc2mic9wb+ucRfrC1VPv21VDA==" length="6320202"/>
+        </item>
+        <item>
+            <title>Petal 1.1.0</title>
+            <pubDate>Mon, 19 Oct 2026 22:01:19 +0700</pubDate>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[## Petal 1.1.0
+
+- **Copy Text (OCR):** read Thai and English from photos, screenshots and scanned PDFs, on your Mac.
+- **Cut Out:** remove photo backgrounds in one drop.
+- **PDF Tools:** password lock / unlock, watermark, page numbers and signatures. Undo in the page organizer.
+- **GIF / Video:** turn images into an animated GIF or a slideshow video; compress videos.
+- **Batch rename** in the Workspace (`Trip {n}`, `{date}`, …).
+- **Automation:** watch folders, ⌥⌘P for files selected in Finder, Finder Quick Actions and `petal://` links for Shortcuts.
+- **Folder access** in one place (welcome window and Settings), kept across updates.
+- **Thai language** (Settings → Language) and a cleaner menu bar panel with Update and Quit buttons.
+- A smaller ring that only shows tools that fit the file.
+]]></description>
+            <enclosure url="https://github.com/AImunich20/petal-releases/releases/download/v1.1.0/Petal-1.1.0.dmg" type="application/octet-stream" sparkle:edSignature="dlvYPg8NWP8doGfQKbTFvND9zxFqeRpeHOrXmTzSI1qRycXTtNxw5QfGekiSeHiG+N99YeLKr0M34JW3wBFwAw==" length="6147119"/>
+        </item>
+        <item>
             <title>Petal 1.0.0</title>
-            <pubDate>Mon, 19 Oct 2026 17:15:54 +0700</pubDate>
-            <sparkle:version>3</sparkle:version>
+            <pubDate>Mon, 19 Oct 2026 21:27:03 +0700</pubDate>
+            <sparkle:version>5</sparkle:version>
             <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description sparkle:format="markdown"><![CDATA[## Petal 1.0.0
 
-- First release: drag ring, control panel, Workspace, History and Settings.
+- Drag any file to bloom the ring: convert, compress, resize, edit, crop, annotate, redact.
+- PDF tools: merge files, organize pages (reorder, rotate, delete, extract) and split by page, every N pages or custom ranges.
+- Control panel in the menu bar, plus Workspace, History and Settings in the Manager.
+- Automatic updates.
 ]]></description>
-            <enclosure url="https://github.com/zen20-AI/petal-releases/releases/download/v1.0.0/Petal-1.0.0.dmg" type="application/octet-stream" sparkle:edSignature="umJ5h5y6aj3PcmiZvWtXr/s9csXvEPhLAMcbgdDyHudZ+jMcCN9QbXmNVHW5SSrP+dZxsGpCO2JPOXKoC8+PAg==" length="3360975"/>
+            <enclosure url="https://github.com/AImunich20/petal-releases/releases/download/v1.0.0/Petal-1.0.0.dmg" type="application/octet-stream" sparkle:edSignature="+PDWSB+VxFi1CP86vSou2gdNOVuR0dtkODjLysyfvrRmgCcDWYoe4woM+QjtgKuuipLBjGUWzB2DHD0cDJyhAg==" length="3631807"/>
         </item>
     </channel>
 </rss>

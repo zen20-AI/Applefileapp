@@ -1,5 +1,7 @@
 import AppKit
 import CoreGraphics
+import CoreText
+import ImageIO
 import Foundation
 import PDFKit
 import Testing
@@ -226,12 +228,157 @@ import UniformTypeIdentifiers
     }
 }
 
+@Suite struct MoreToolsTests {
+    @Test func renamePreviewNumbersAndAvoidsClashes() throws {
+        let urls = ["/x/b.jpg", "/x/a.png", "/x/c.jpg"].map { URL(fileURLWithPath: $0) }
+        let taken = URL(fileURLWithPath: "/x/Trip 2.png")
+        let names = BatchRenamer.preview(urls, pattern: RenamePattern(template: "Trip"), exists: { $0 == taken })
+        #expect(names.map(\.lastPathComponent) == ["Trip 1.jpg", "Trip 2 2.png", "Trip 3.jpg"])
+        let padded = BatchRenamer.preview(urls, pattern: RenamePattern(template: "{name}-{n}", start: 9, digits: 3), exists: { _ in false })
+        #expect(padded.map(\.lastPathComponent) == ["b-009.jpg", "a-010.png", "c-011.jpg"])
+    }
+
+    @Test func renameSwapsNames() throws {
+        try withTemporaryDirectory { dir in
+            let a = dir.appendingPathComponent("1.txt"), b = dir.appendingPathComponent("2.txt")
+            try "a".write(to: a, atomically: true, encoding: .utf8)
+            try "b".write(to: b, atomically: true, encoding: .utf8)
+            // b → "1", a → "2": a straight swap.
+            let result = try BatchRenamer.rename([b, a], pattern: RenamePattern(template: "{n}"))
+            #expect(result.map(\.lastPathComponent) == ["1.txt", "2.txt"])
+            #expect(try String(contentsOf: dir.appendingPathComponent("1.txt"), encoding: .utf8) == "b")
+        }
+    }
+
+    @Test func lockAndUnlock() throws {
+        try withTemporaryDirectory { dir in
+            let source = try makePDF(pages: 2, in: dir)
+            let locked = try PDFTools.lock(source, password: "pass")
+            #expect(PDFTools.isLocked(locked))
+            #expect(throws: PDFTools.PasswordError.self) { try PDFTools.unlock(locked, password: "nope") }
+            let unlocked = try PDFTools.unlock(locked, password: "pass")
+            #expect(!PDFTools.isLocked(unlocked))
+            #expect(PDFDocument(url: unlocked)?.pageCount == 2)
+        }
+    }
+
+    @Test func stampsKeepPagesAndRotation() throws {
+        try withTemporaryDirectory { dir in
+            var pages = try PDFPages.pages(of: [try makePDF(pages: 3, in: dir)])
+            pages[0].rotation = 90
+            let rotated = try PDFPages.write(pages, name: dir.appendingPathComponent("R.pdf"), suffix: "X")
+            let numbered = try PDFTools.numberPages(rotated, ofTotal: true)
+            let watermarked = try PDFTools.watermark(numbered, text: "DRAFT")
+            let document = try #require(PDFDocument(url: watermarked))
+            #expect(document.pageCount == 3)
+            // The 10 × 40 page turned 90° is drawn upright as 40 × 10.
+            #expect(document.page(at: 0)?.bounds(for: .mediaBox).size == CGSize(width: 40, height: 10))
+            #expect(document.string?.contains("DRAFT") == true)
+        }
+    }
+
+    @Test func ocrReadsRenderedText() throws {
+        let ctx = try #require(ImageFile.makeContext(width: 900, height: 200))
+        ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: 900, height: 200))
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: "Hello Petal 2026", attributes: [
+            .font: NSFont.systemFont(ofSize: 72), .foregroundColor: NSColor.black]))
+        ctx.textPosition = CGPoint(x: 40, y: 70)
+        CTLineDraw(line, ctx)
+        let text = try TextRecognizer.recognize(try #require(ctx.makeImage()))
+        #expect(text.contains("Petal"))
+    }
+
+    @Test func gifAndSlideshow() throws {
+        try withTemporaryDirectory { dir in
+            let urls = try (1...3).map { n -> URL in
+                let url = dir.appendingPathComponent("F\(n).png")
+                try ImageFile.write(try solidImage(width: 64 * n, height: 48), to: url, type: .png)
+                return url
+            }
+            let gif = try MediaMaker.makeGIF(urls, maxSide: 100)
+            #expect(gif.lastPathComponent == "F1 Animation.gif")
+            #expect(CGImageSourceCreateWithURL(gif as CFURL, nil).map(CGImageSourceGetCount) == 3)
+            let video = try MediaMaker.makeVideo(urls, secondsPerImage: 0.5)
+            #expect(video.fileSize > 0)
+            #expect(FileKind(url: video) == .video)
+        }
+    }
+}
+
+@Suite(.serialized) struct SizeLimitTests {
+    @Test func imageFitsUnderLimit() throws {
+        try withTemporaryDirectory { dir in
+            let png = dir.appendingPathComponent("Photo.png")
+            try ImageFile.write(try noiseImage(width: 1600, height: 1200), to: png, type: .png)
+            let limit: Int64 = 200 * 1024
+            #expect(png.fileSize > limit)
+            let result = try Compressor.compress(png, under: limit)
+            #expect(result.output.lastPathComponent == "Photo Compressed.jpg")
+            #expect(result.output.fileSize <= limit)
+            #expect(result.compressedSize == result.output.fileSize)
+            #expect(try ImageFile.load(result.output).width > 0)
+        }
+    }
+
+    @Test func smallFileIsLeftAlone() throws {
+        try withTemporaryDirectory { dir in
+            let png = dir.appendingPathComponent("Small.png")
+            try ImageFile.write(try solidImage(width: 20, height: 20), to: png, type: .png)
+            #expect(throws: FileAppError.self) { try Compressor.compress(png, under: 1024 * 1024) }
+            #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("Small Compressed.jpg").path))
+        }
+    }
+
+    @Test func pdfFitsUnderLimit() throws {
+        try withTemporaryDirectory { dir in
+            let document = PDFDocument()
+            for _ in 0..<3 {
+                let image = try noiseImage(width: 1200, height: 1600)
+                let page = try #require(PDFPage(image: NSImage(cgImage: image, size: CGSize(width: 600, height: 800))))
+                document.insert(page, at: document.pageCount)
+            }
+            let url = dir.appendingPathComponent("Scan.pdf")
+            #expect(document.write(to: url))
+            let limit: Int64 = 300 * 1024
+            #expect(url.fileSize > limit)
+            let result = try Compressor.compress(url, under: limit)
+            #expect(result.output.fileSize <= limit)
+            let output = try #require(PDFDocument(url: result.output))
+            #expect(output.pageCount == 3)
+            #expect(output.page(at: 0)?.bounds(for: .cropBox).size == CGSize(width: 600, height: 800))
+        }
+    }
+
+    @Test func defaultLimitAppliesToPlainCompress() throws {
+        try withTemporaryDirectory { dir in
+            let png = dir.appendingPathComponent("Shot.png")
+            try ImageFile.write(try noiseImage(width: 800, height: 600), to: png, type: .png)
+            Compressor.defaultLimit = 100 * 1024
+            defer { Compressor.defaultLimit = nil }
+            #expect(try Compressor.compress(png).output.fileSize <= 100 * 1024)
+        }
+    }
+}
+
 // MARK: - Helpers
 
 func solidImage(width: Int, height: Int) throws -> CGImage {
     let ctx = try #require(ImageFile.makeContext(width: width, height: height))
     ctx.setFillColor(CGColor(red: 1, green: 0.4, blue: 0.1, alpha: 1))
     ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    return try #require(ctx.makeImage())
+}
+
+/// Random pixels: compresses badly, like a detailed photo.
+func noiseImage(width: Int, height: Int) throws -> CGImage {
+    let ctx = try #require(ImageFile.makeContext(width: width, height: height))
+    let data = try #require(ctx.data).bindMemory(to: UInt32.self, capacity: ctx.bytesPerRow / 4 * height)
+    var seed: UInt32 = 2463534242
+    for i in 0..<(ctx.bytesPerRow / 4 * height) {
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5
+        data[i] = seed | 0xFF00_0000
+    }
     return try #require(ctx.makeImage())
 }
 

@@ -12,7 +12,7 @@ VERSION="${VERSION:-1.0.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 APP="build/Petal.app"
 # Sparkle update feed: appcast.xml attached to the latest release of the public releases repo.
-FEED_URL="${FEED_URL-https://github.com/zen20-AI/petal-releases/releases/latest/download/appcast.xml}"
+FEED_URL="${FEED_URL-https://github.com/AImunich20/petal-releases/releases/latest/download/appcast.xml}"
 # EdDSA public key matching the private key in the login keychain (account "petal", see scripts/release.sh).
 SPARKLE_PUBLIC_KEY="8/6VGk8EEFt1xtMKHKDSALTKI7FtVNwBVDYbS7NGHeY="
 
@@ -47,6 +47,11 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 
+# Translations (Resources/<lang>.lproj/Localizable.strings), looked up through the main bundle.
+for lproj in Resources/*.lproj; do
+    [[ -d "$lproj" ]] && ditto "$lproj" "$APP/Contents/Resources/$(basename "$lproj")"
+done
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -69,6 +74,128 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>SUEnableAutomaticChecks</key><true/>
     <key>SUScheduledCheckInterval</key><integer>86400</integer>
     <key>NSHumanReadableCopyright</key><string>© $(date +%Y) Petal</string>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleLocalizations</key><array><string>en</string><string>th</string></array>
+    <key>NSDesktopFolderUsageDescription</key><string>Petal saves converted and edited files next to the originals on your Desktop.</string>
+    <key>NSDocumentsFolderUsageDescription</key><string>Petal saves converted and edited files next to the originals in Documents.</string>
+    <key>NSDownloadsFolderUsageDescription</key><string>Petal saves converted and edited files next to the originals in Downloads, and can watch it for new files.</string>
+    <key>NSRemovableVolumesUsageDescription</key><string>Petal works on files stored on external drives.</string>
+    <key>NSNetworkVolumesUsageDescription</key><string>Petal works on files stored on network drives.</string>
+    <key>NSAppleEventsUsageDescription</key><string>Petal reads which files are selected in Finder when you press ⌥⌘P.</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key><string>com.zen20.petal</string>
+            <key>CFBundleURLSchemes</key><array><string>petal</string></array>
+        </dict>
+    </array>
+    <key>NSServices</key>
+    <array>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Add to Shelf</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>shelf</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Compress to Under 1 MB</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>compress-1mb</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Compress</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>compress</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Copy Text</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>copyText</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Remove Background</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>cutOut</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Convert to JPG</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>convert-jpg</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Convert to PDF</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>convert-pdf</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Merge into PDF</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>merge</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Split PDF</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>split</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Organize PDF Pages</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>pages</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Rename</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>rename</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Open Ring</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>ring</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Petal: Add to Workspace</string></dict>
+            <key>NSMessage</key><string>runService</string>
+            <key>NSPortName</key><string>Petal</string>
+            <key>NSUserData</key><string>workspace</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.item</string></array>
+        </dict>
+    </array>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
@@ -79,6 +206,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
             <array>
                 <string>public.image</string>
                 <string>com.adobe.pdf</string>
+                <string>public.movie</string>
                 <string>public.rtf</string>
                 <string>public.plain-text</string>
                 <string>public.html</string>
@@ -96,13 +224,31 @@ PLIST
 # Sign inside-out (Sparkle's helpers first), as Sparkle's docs recommend instead of --deep.
 # Hardened runtime (required for notarization) only with a real identity: under it, an ad-hoc app
 # refuses to load the separately ad-hoc-signed Sparkle.framework.
-SIGN=(codesign --force --sign "${SIGN_IDENTITY:--}")
-if [[ -n "${SIGN_IDENTITY:-}" ]]; then SIGN+=(--options runtime --timestamp); fi
+#
+# Without a Developer ID, a local self-signed "Petal Code Signing" identity (if it's in the keychain)
+# gives every build the same designated requirement, so macOS keeps folder permissions across
+# updates (ad-hoc signatures change with every build and macOS would ask again).
+LOCAL_IDENTITY="Petal Code Signing"
+if [[ -z "${SIGN_IDENTITY:-}" ]] && security find-certificate -c "$LOCAL_IDENTITY" >/dev/null 2>&1; then
+    SIGN=(codesign --force --sign "$LOCAL_IDENTITY")
+else
+    SIGN=(codesign --force --sign "${SIGN_IDENTITY:--}")
+fi
+if [[ -n "${SIGN_IDENTITY:-}" ]]; then
+    # Hardened runtime needs this entitlement for the Finder selection (⌥⌘P) Apple Events.
+    ENTITLEMENTS="build/Petal.entitlements"
+    cat > "$ENTITLEMENTS" <<ENT
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>com.apple.security.automation.apple-events</key><true/></dict></plist>
+ENT
+    SIGN+=(--options runtime --timestamp)
+fi
 SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
 "${SIGN[@]}" "$SPARKLE/Versions/B/XPCServices/Installer.xpc"
 "${SIGN[@]}" --preserve-metadata=entitlements "$SPARKLE/Versions/B/XPCServices/Downloader.xpc"
 "${SIGN[@]}" "$SPARKLE/Versions/B/Autoupdate"
 "${SIGN[@]}" "$SPARKLE/Versions/B/Updater.app"
 "${SIGN[@]}" "$SPARKLE"
-"${SIGN[@]}" "$APP"
+"${SIGN[@]}" ${ENTITLEMENTS:+--entitlements "$ENTITLEMENTS"} "$APP"
 echo "Built $APP ($VERSION, build $BUILD_NUMBER)"

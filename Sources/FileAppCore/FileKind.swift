@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 public enum FileKind: Equatable {
     case image
     case pdf
+    case video
     case document
     case other
 
@@ -24,6 +25,8 @@ public enum FileKind: Equatable {
             self = .pdf
         } else if type.conforms(to: .image) {
             self = .image
+        } else if type.conforms(to: .movie) {
+            self = .video
         } else if Self.documentTypes.contains(where: { type.conforms(to: $0) }) {
             self = .document
         } else {
@@ -44,5 +47,21 @@ public extension URL {
 public enum ByteFormatter {
     public static func string(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
+    /// Size limits are binary ("2 MB" = 2 × 1024 × 1024), so they read as round numbers.
+    public static func limit(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .memory)
+    }
+
+    /// "500kb", "1mb", "1.5 MB" → bytes (binary units).
+    public static func parseLimit(_ text: String) -> Int64? {
+        let lower = text.lowercased().replacingOccurrences(of: " ", with: "")
+        let units: [(String, Double)] = [("kb", 1024), ("k", 1024), ("mb", 1024 * 1024), ("m", 1024 * 1024)]
+        for (suffix, factor) in units where lower.hasSuffix(suffix) {
+            guard let value = Double(lower.dropLast(suffix.count)), value > 0 else { return nil }
+            return Int64(value * factor)
+        }
+        return nil
     }
 }

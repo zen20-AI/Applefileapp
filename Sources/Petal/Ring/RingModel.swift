@@ -4,23 +4,29 @@ import Foundation
 import SwiftUI
 
 enum Tool: String, CaseIterable, Identifiable {
-    case compress, resize, metadata, edit, annotate, addBackground, crop, redact, merge, pages, split
+    case compress, resize, cutOut, copyText, edit, crop, annotate, redact, addBackground, metadata
+    case animate, merge, pages, split, secure, shelf
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .compress: return "Compress"
-        case .resize: return "Resize"
-        case .merge: return "Merge PDF"
-        case .pages: return "Pages"
-        case .split: return "Split PDF"
-        case .metadata: return "Metadata"
-        case .edit: return "Edit"
-        case .annotate: return "Annotate"
-        case .addBackground: return "Add BG"
-        case .crop: return "Crop"
-        case .redact: return "Redact"
+        case .compress: return String(localized: "Compress")
+        case .resize: return String(localized: "Resize")
+        case .cutOut: return String(localized: "Cut Out")
+        case .copyText: return String(localized: "Copy Text")
+        case .edit: return String(localized: "Edit")
+        case .crop: return String(localized: "Crop")
+        case .annotate: return String(localized: "Annotate")
+        case .redact: return String(localized: "Redact")
+        case .addBackground: return String(localized: "Add BG")
+        case .metadata: return String(localized: "Metadata")
+        case .animate: return String(localized: "GIF / Video")
+        case .merge: return String(localized: "Merge PDF")
+        case .pages: return String(localized: "Pages")
+        case .split: return String(localized: "Split PDF")
+        case .secure: return String(localized: "PDF Tools")
+        case .shelf: return String(localized: "Shelf")
         }
     }
 
@@ -28,30 +34,42 @@ enum Tool: String, CaseIterable, Identifiable {
         switch self {
         case .compress: return "arrow.down.right.and.arrow.up.left"
         case .resize: return "arrow.up.left.and.arrow.down.right"
+        case .cutOut: return "person.crop.rectangle"
+        case .copyText: return "text.viewfinder"
+        case .edit: return "slider.horizontal.3"
+        case .crop: return "crop"
+        case .annotate: return "pencil.tip.crop.circle"
+        case .redact: return "eye.slash"
+        case .addBackground: return "photo.on.rectangle"
+        case .metadata: return "tag"
+        case .animate: return "play.rectangle.on.rectangle"
         case .merge: return "doc.on.doc"
         case .pages: return "rectangle.stack"
         case .split: return "scissors"
-        case .metadata: return "tag"
-        case .edit: return "slider.horizontal.3"
-        case .annotate: return "pencil.tip.crop.circle"
-        case .addBackground: return "photo.on.rectangle"
-        case .crop: return "crop"
-        case .redact: return "eye.slash"
+        case .secure: return "lock.doc"
+        case .shelf: return "tray.and.arrow.down"
         }
     }
 
-    /// Merging needs at least two inputs; everything else needs one eligible file.
+    /// Tools that need several files (merge, animate) or that only make sense alone.
     func isAvailable(for urls: [URL]) -> Bool {
-        if self == .merge { return urls.filter(PDFMerger.canMerge).count > 1 }
-        return urls.contains(where: isAvailable(for:))
+        switch self {
+        case .merge: return urls.filter(PDFMerger.canMerge).count > 1
+        case .animate: return urls.filter { FileKind(url: $0) == .image }.count > 1
+        default: return urls.contains(where: isAvailable(for:))
+        }
     }
 
     func isAvailable(for url: URL) -> Bool {
+        let kind = FileKind(url: url)
         switch self {
-        case .compress: return Compressor.canCompress(url)
+        case .compress: return Compressor.canCompress(url) || kind == .video
+        case .copyText: return TextRecognizer.canRecognize(url)
         case .merge, .pages: return PDFMerger.canMerge(url)
-        case .split: return FileKind(url: url) == .pdf && PDFPages.pageCount(of: url) > 1
-        default: return FileKind(url: url) == .image
+        case .split: return kind == .pdf && PDFPages.pageCount(of: url) > 1
+        case .secure: return kind == .pdf
+        case .shelf: return true
+        default: return kind == .image
         }
     }
 }
@@ -128,26 +146,34 @@ final class RingModel: ObservableObject {
         hover = .outside
         cancelHubTimer()
 
-        convertItems = OutputFormat.allCases.map { format in
+        convertItems = Self.applicable(OutputFormat.allCases.map { format in
             RingItem(
                 id: format.id,
                 title: format.label,
                 symbol: nil,
                 action: .convert(format),
                 enabled: urls.contains { Converter.isAvailable(format, for: $0) })
-        }
-        toolItems = Tool.allCases.map { tool in
+        })
+        toolItems = Self.applicable(Tool.allCases.map { tool in
             RingItem(
                 id: tool.id,
-                title: tool.title,
+                // "≤ 1 MB" when Compress aims for a size, so it's clear what dropping there does.
+                title: tool == .compress ? Compressor.defaultLimit.map { "≤ \(ByteFormatter.limit($0))" } ?? tool.title : tool.title,
                 symbol: tool.symbol,
                 action: .tool(tool),
                 enabled: tool.isAvailable(for: urls))
-        }
+        })
 
-        // Images open on the tools ring; everything else is mostly about converting.
-        let allImages = urls.allSatisfy { FileKind(url: $0) == .image }
-        mode = allImages ? .tools : .convert
+        // Images, PDFs and videos open on the tools ring; documents are about converting.
+        let hasTools = toolItems.contains { $0.enabled && $0.action != .tool(.shelf) }
+        let hasFormats = convertItems.contains(where: \.enabled)
+        mode = hasTools && (urls.allSatisfy { FileKind(url: $0) != .document } || !hasFormats) ? .tools : .convert
+    }
+
+    /// Keeps the ring small: only petals that work for these files (all of them, dimmed, if none do).
+    private static func applicable(_ items: [RingItem]) -> [RingItem] {
+        let enabled = items.filter(\.enabled)
+        return enabled.isEmpty ? items : enabled
     }
 
     func updateHover(_ point: CGPoint?) {

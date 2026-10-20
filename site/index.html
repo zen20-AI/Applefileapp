@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Petal — drag, drop, done</title>
+<meta name="description" content="Petal is a free macOS menu bar app: drag any file and a ring of tools appears. Convert, compress, read text, cut out, merge and split — all on your Mac.">
+<style>
+  :root {
+    --bg: #070909; --bg2: #121515; --ink: #f2f5f4; --muted: #9aa5a2; --line: rgba(255,255,255,.09);
+    --mint: #1abd99; --mint-soft: #6bebc7; --card: rgba(255,255,255,.04);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--ink); background: var(--bg);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Sukhumvit Set", "Thonburi", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .glow { position: fixed; inset: -20% -10% auto; height: 80vh; pointer-events: none;
+    background: radial-gradient(closest-side, rgba(107,235,199,.18), transparent); }
+  main { position: relative; max-width: 980px; margin: 0 auto; padding: 0 16px 80px; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+  .brand { display: flex; gap: 10px; align-items: center; font-weight: 700; letter-spacing: .2px; }
+  .brand img { width: 30px; height: 30px; }
+  .lang { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: 99px; }
+  .lang button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px;
+    padding: 4px 12px; border-radius: 99px; cursor: pointer; }
+  .lang button.on { background: linear-gradient(var(--mint-soft), var(--mint)); color: #04110d; font-weight: 600; }
+  header { text-align: center; padding: 64px 0 40px; }
+  header img { width: 148px; height: 148px; filter: drop-shadow(0 20px 40px rgba(26,189,153,.25)); }
+  h1 { font-size: clamp(36px, 7vw, 64px); line-height: 1.05; margin: 22px 0 14px; letter-spacing: -1.5px; }
+  h1 span { background: linear-gradient(var(--mint-soft), var(--mint)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lead { color: var(--muted); font-size: 19px; max-width: 600px; margin: 0 auto 32px; }
+  .cta { display: inline-flex; align-items: center; gap: 10px; padding: 15px 28px; border-radius: 99px;
+    background: linear-gradient(var(--mint-soft), var(--mint)); color: #04110d; font-weight: 700; text-decoration: none;
+    box-shadow: 0 10px 30px rgba(26,189,153,.35); transition: transform .15s, box-shadow .15s; }
+  .cta:hover { transform: translateY(-1px); box-shadow: 0 14px 36px rgba(26,189,153,.45); }
+  .small { color: var(--muted); font-size: 13px; margin-top: 14px; }
+  .small a { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 56px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 22px; }
+  .card .icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+    background: rgba(107,235,199,.12); color: var(--mint-soft); font-size: 19px; margin-bottom: 12px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; }
+  h2 { font-size: 28px; margin: 72px 0 18px; letter-spacing: -.5px; }
+  ol { color: var(--muted); padding-left: 22px; }
+  ol li { margin: 8px 0; }
+  ol b { color: var(--ink); }
+  footer { margin-top: 72px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  footer a { color: var(--muted); }
+  [data-th] { display: none; }
+  html[lang="th"] [data-en] { display: none; }
+  html[lang="th"] [data-th] { display: revert; }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<main>
+  <nav>
+    <div class="brand"><img src="icon.png" alt="">Petal</div>
+    <div class="lang" role="group" aria-label="Language">
+      <button id="en" class="on" onclick="setLang('en')">EN</button>
+      <button id="th" onclick="setLang('th')">ไทย</button>
+    </div>
+  </nav>
+
+  <header>
+    <img src="icon.png" alt="Petal icon">
+    <h1 data-en>Drag. Drop on a petal.<br><span>Done.</span></h1>
+    <h1 data-th>ลาก วางบนกลีบ<br><span>เสร็จ</span></h1>
+    <p class="lead" data-en>Start dragging any file and a ring of tools blooms beside the pointer. Convert, compress, read text, cut out, merge and split — right on your Mac.</p>
+    <p class="lead" data-th>เริ่มลากไฟล์ใดก็ได้ แล้ววงแหวนเครื่องมือจะบานขึ้นข้างเมาส์ แปลง บีบอัด อ่านข้อความ ตัดพื้นหลัง รวม และแยกไฟล์ ทั้งหมดทำในเครื่อง Mac ของคุณ</p>
+    <a class="cta" href="https://github.com/AImunich20/petal-releases/releases/latest/download/Petal.dmg">
+      <span data-en>Download for Mac</span><span data-th>ดาวน์โหลดสำหรับ Mac</span>
+    </a>
+    <p class="small"><span data-en>Free · macOS 14 Sonoma or later · Apple silicon &amp; Intel · updates itself</span><span data-th>ฟรี · macOS 14 ขึ้นไป · Apple silicon และ Intel · อัปเดตอัตโนมัติ</span>
+      · <a href="https://github.com/AImunich20/petal-releases/releases"><span data-en>All versions</span><span data-th>ทุกเวอร์ชัน</span></a></p>
+  </header>
+
+  <section class="grid">
+    <div class="card"><div class="icon">⇄</div><h3 data-en>Convert anything</h3><h3 data-th>แปลงไฟล์</h3>
+      <p data-en>PNG, JPG, HEIC, WEBP, AVIF, TIFF, PDF, DOCX — in one drop.</p><p data-th>PNG, JPG, HEIC, WEBP, AVIF, TIFF, PDF, DOCX ในการวางครั้งเดียว</p></div>
+    <div class="card"><div class="icon">⇣</div><h3 data-en>Compress</h3><h3 data-th>บีบอัด</h3>
+      <p data-en>Smaller images, PDFs and videos, ready to send.</p><p data-th>รูป, PDF และวิดีโอเล็กลง พร้อมส่ง</p></div>
+    <div class="card"><div class="icon">Aa</div><h3 data-en>Copy text (OCR)</h3><h3 data-th>คัดลอกข้อความ (OCR)</h3>
+      <p data-en>Thai and English from photos, screenshots and scans.</p><p data-th>อ่านภาษาไทยและอังกฤษจากรูป ภาพหน้าจอ และเอกสารสแกน</p></div>
+    <div class="card"><div class="icon">✂︎</div><h3 data-en>Cut out</h3><h3 data-th>ตัดพื้นหลัง</h3>
+      <p data-en>Remove photo backgrounds in a second.</p><p data-th>ลบพื้นหลังรูปในวินาทีเดียว</p></div>
+    <div class="card"><div class="icon">❐</div><h3 data-en>PDF pages</h3><h3 data-th>จัดการ PDF</h3>
+      <p data-en>Merge, split, reorder, rotate, password, watermark, page numbers, sign.</p><p data-th>รวม แยก สลับหน้า หมุน ใส่รหัส ลายน้ำ เลขหน้า และเซ็นชื่อ</p></div>
+    <div class="card"><div class="icon">⚡︎</div><h3 data-en>Automation</h3><h3 data-th>อัตโนมัติ</h3>
+      <p data-en>Watch folders, ⌥⌘P in Finder, Quick Actions, batch rename.</p><p data-th>เฝ้าดูโฟลเดอร์ ปุ่มลัด ⌥⌘P คำสั่งด่วนใน Finder เปลี่ยนชื่อทีละหลายไฟล์</p></div>
+  </section>
+
+  <h2 data-en>Install</h2><h2 data-th>วิธีติดตั้ง</h2>
+  <ol data-en>
+    <li>Open <b>Petal.dmg</b> and drag <b>Petal</b> into <b>Applications</b>.</li>
+    <li>If macOS says it can't be opened: <b>System Settings → Privacy &amp; Security → Open Anyway</b> (once — Petal isn't notarized yet; updates install by themselves).</li>
+    <li>Allow folder access in the welcome window. Petal lives in the menu bar — look for the petal icon.</li>
+  </ol>
+  <ol data-th>
+    <li>เปิด <b>Petal.dmg</b> แล้วลาก <b>Petal</b> ไปไว้ใน <b>Applications</b></li>
+    <li>ถ้า macOS แจ้งว่าเปิดไม่ได้: ไปที่ <b>System Settings → Privacy &amp; Security → Open Anyway</b> (ทำครั้งเดียว อัปเดตครั้งต่อไปติดตั้งเอง)</li>
+    <li>กดอนุญาตการเข้าถึงโฟลเดอร์ในหน้าต้อนรับ Petal อยู่ที่แถบเมนูด้านบน (ไอคอนกลีบดอก)</li>
+  </ol>
+
+  <footer>
+    <span data-en>Your files never leave your Mac.</span><span data-th>ไฟล์ของคุณไม่ออกจากเครื่อง</span>
+    <a href="https://github.com/AImunich20/petal-releases/releases">Release notes</a>
+  </footer>
+</main>
+<script>
+  function setLang(lang) {
+    document.documentElement.lang = lang;
+    for (const id of ['en', 'th']) document.getElementById(id).classList.toggle('on', id === lang);
+    try { localStorage.setItem('lang', lang); } catch (e) {}
+  }
+  let saved = null;
+  try { saved = localStorage.getItem('lang'); } catch (e) {}
+  setLang(saved || ((navigator.language || '').startsWith('th') ? 'th' : 'en'));
+</script>
+</body>
+</html>

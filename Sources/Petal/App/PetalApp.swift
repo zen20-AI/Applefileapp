@@ -19,6 +19,8 @@ struct PetalApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let coordinator = AppCoordinator()
     private var pendingURLs: [URL] = []
+    private var pendingLinks: [URL] = []
+    private lazy var onboarding = OnboardingWindowController()
     private var launched = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -26,19 +28,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         coordinator.start()
         _ = Updater.shared // starts Sparkle's scheduled checks
         launched = true
+        pendingLinks.forEach(coordinator.handle)
         if !pendingURLs.isEmpty {
             coordinator.open(pendingURLs)
             pendingURLs.removeAll()
         } else if !UserDefaults.standard.bool(forKey: "hasLaunchedBefore") {
-            // First launch: show the Manager so people find the app.
+            // First launch: a short welcome that also asks for folder access up front.
             UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
-            coordinator.manager.show(section: .about)
+            onboarding.show()
         }
     }
 
     /// Finder "Open With" and drops on the Dock icon.
     func application(_ application: NSApplication, open urls: [URL]) {
-        if launched { coordinator.open(urls) } else { pendingURLs += urls }
+        let links = urls.filter { $0.scheme == "petal" }
+        let files = urls.filter(\.isFileURL)
+        if launched {
+            links.forEach(coordinator.handle)
+            if !files.isEmpty { coordinator.open(files) }
+        } else {
+            pendingLinks += links
+            pendingURLs += files
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

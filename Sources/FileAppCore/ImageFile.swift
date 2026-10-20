@@ -8,9 +8,13 @@ public enum FileAppError: LocalizedError {
     case unsupported(String)
     case writeFailed(URL)
     case noSavings
+    case alreadyUnder(Int64)
+    case cannotReach(Int64)
 
     public var errorDescription: String? {
         switch self {
+        case .alreadyUnder(let limit): return String(localized: "Already under \(ByteFormatter.limit(limit))")
+        case .cannotReach(let limit): return String(localized: "Couldn't get it under \(ByteFormatter.limit(limit))")
         case .unreadable(let url): return "Couldn't read \(url.lastPathComponent)"
         case .unsupported(let what): return "\(what) isn't supported on this Mac"
         case .writeFailed(let url): return "Couldn't write \(url.lastPathComponent)"
@@ -76,6 +80,21 @@ public enum ImageFile {
         let needsOpaque = type.conforms(to: .jpeg) || type.conforms(to: .bmp)
         CGImageDestinationAddImage(destination, needsOpaque ? flattened(image) : image, options as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { throw FileAppError.writeFailed(url) }
+    }
+
+    /// Encodes in memory, so callers can measure the size before writing.
+    public static func data(_ image: CGImage, type: UTType, quality: Double? = nil) throws -> Data {
+        guard canWrite(type) else { throw FileAppError.unsupported("Saving \(type.preferredFilenameExtension?.uppercased() ?? type.identifier)") }
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(data, type.identifier as CFString, 1, nil) else {
+            throw FileAppError.unsupported("Saving \(type.identifier)")
+        }
+        var options: [CFString: Any] = [:]
+        if let quality { options[kCGImageDestinationLossyCompressionQuality] = quality }
+        let needsOpaque = type.conforms(to: .jpeg) || type.conforms(to: .bmp)
+        CGImageDestinationAddImage(destination, needsOpaque ? flattened(image) : image, options as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { throw FileAppError.unsupported("Saving \(type.identifier)") }
+        return data as Data
     }
 
     /// Writes a pixel-identical copy without EXIF/GPS/TIFF/IPTC metadata.
