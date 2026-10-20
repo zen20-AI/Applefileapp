@@ -1,5 +1,26 @@
 # Petal
 
+<p align="center"><img src="docs/images/icon.png" width="112" alt="Petal"></p>
+
+<p align="center">
+  <a href="https://github.com/AImunich20/petal-releases/releases/latest/download/Petal.dmg"><b>⬇ Download Petal.dmg</b></a>
+  · macOS 14+ · Apple silicon &amp; Intel · free, updates itself<br>
+  Install guide with screenshots (Thai / English): <a href="site/README.md">site/README.md</a>
+  · <a href="https://aimunich20.github.io/petal-releases/">website</a>
+</p>
+
+<p align="center">
+  <img src="docs/images/ring.png" width="420" alt="The ring">
+  <img src="docs/images/panel.png" width="330" alt="Menu bar panel">
+</p>
+<p align="center">
+  <img src="docs/images/shelf.png" width="330" alt="Shelf">
+  <img src="docs/images/compress.png" width="420" alt="Compress to a size">
+</p>
+
+**Install:** open the DMG and drag Petal into Applications. The first time you open it, macOS may block it;
+go to System Settings → Privacy &amp; Security → **Open Anyway** (once). Petal lives in the menu bar (✿).
+
 **Petal** is a macOS menu bar utility that opens a radial "file ring" whenever you drag a file.
 Drop the file on a petal to convert it or open a quick editor. A Manager window handles
 batches, history and settings. Results are saved as new files and never overwrite the original.
@@ -56,11 +77,24 @@ available.
 
 Compress also shrinks videos (Settings → Quality → Video compression: Smallest / 720p / 1080p).
 
+## Compress to a size
+
+Settings → **Compress to** (or the arrow on the Workspace's Compress button) aims for "under 200 KB / 500 KB /
+1 MB / 2 MB / 5 MB / 10 MB". Images become JPEG at the best quality that fits, shrinking only if needed; PDFs
+are optimized first and turned into page images only when that isn't enough. The Compress petal then reads
+**≤ 1 MB**. Links: `petal://run?action=compress-2mb&path=…`.
+
+## Shelf
+
+A floating panel at the edge of the screen for parking files. Drop files on it (or on the Shelf petal), drag
+them out one at a time or all at once from the stack icon, or copy them for pasting into Mail or LINE. New
+results land there too (turn off in the ⋯ menu or Settings). Open it from the menu bar panel or `petal://shelf`.
+
 ## Control panel
 
 Click the petal icon in the menu bar for a Control Center–style panel. Its title bar has
 **Check for Updates** and **Quit**. Below that: pause or resume the drag ring, drop files to
-bloom the ring right there, jump to Workspace / Automation / History / Settings, and drag
+bloom the ring right there, open the Shelf, jump to Workspace / Automation / History / Settings, and drag
 recent results straight into other apps.
 
 ## Automation

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publishes the download page (site/) to the releases repo and turns on GitHub Pages there.
+# Publishes the download page and README (site/) to the releases repo and turns on GitHub Pages there.
 #   scripts/publish-site.sh      → https://<owner>.github.io/petal-releases/
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -16,6 +16,9 @@ upload() { # <local file> <path in repo>
 }
 upload site/index.html index.html
 upload build/site-icon.png icon.png
+# The repo's front page on GitHub: install guide with screenshots.
+upload site/README.md README.md
+for image in docs/images/*.png; do upload "$image" "images/$(basename "$image")"; done
 
 gh api "repos/$RELEASES_REPO/pages" >/dev/null 2>&1 || \
     gh api -X POST "repos/$RELEASES_REPO/pages" -f "source[branch]=main" -f "source[path]=/" --jq .html_url
