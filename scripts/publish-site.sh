@@ -9,10 +9,15 @@ RELEASES_REPO="${RELEASES_REPO:-AImunich20/petal-releases}"
 sips -z 512 512 build/AppIcon-1024.png --out build/site-icon.png >/dev/null
 
 upload() { # <local file> <path in repo>
-    local sha
+    local sha body
     sha="$(gh api "repos/$RELEASES_REPO/contents/$2" --jq .sha 2>/dev/null || true)"
-    gh api -X PUT "repos/$RELEASES_REPO/contents/$2" -f message="Update $2" \
-        -f content="$(base64 -i "$1")" ${sha:+-f sha="$sha"} --jq .content.path
+    # The request goes through a file: big images overflow the command line as a -f argument.
+    body="$(mktemp)"
+    python3 -c 'import base64, json, sys
+print(json.dumps({"message": "Update " + sys.argv[2], "content": base64.b64encode(open(sys.argv[1], "rb").read()).decode(),
+                  **({"sha": sys.argv[3]} if sys.argv[3] else {})}))' "$1" "$2" "$sha" > "$body"
+    gh api -X PUT "repos/$RELEASES_REPO/contents/$2" --input "$body" --jq .content.path
+    rm -f "$body"
 }
 upload site/index.html index.html
 upload build/site-icon.png icon.png
